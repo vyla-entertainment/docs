@@ -1,6 +1,6 @@
 ---
 title: TV Episode Sources
-api: "GET https://vyla-api.pages.dev/api/tv"
+api: "GET https://missourimonster-vyla-api.hf.space/api/tv"
 description: Fetch all working HLS sources, subtitle tracks, and TMDB metadata for a TV episode.
 ---
 
@@ -30,12 +30,12 @@ Identical to the movie endpoint in behavior, but takes a series ID plus season a
 
 <CodeGroup>
 ```bash cURL
-curl "https://vyla-api.pages.dev/api/tv?id=1396&season=1&episode=1"
+curl "https://missourimonster-vyla-api.hf.space/api/tv?id=1396&season=1&episode=1"
 ```
 
 ```javascript JavaScript
 const res  = await fetch(
-  'https://vyla-api.pages.dev/api/tv?id=1396&season=1&episode=1'
+  'https://missourimonster-vyla-api.hf.space/api/tv?id=1396&season=1&episode=1'
 );
 const data = await res.json();
 
@@ -63,7 +63,7 @@ interface TvResponse {
 }
 
 const data: TvResponse = await fetch(
-  'https://vyla-api.pages.dev/api/tv?id=1396&season=1&episode=1'
+  'https://missourimonster-vyla-api.hf.space/api/tv?id=1396&season=1&episode=1'
 ).then(r => r.json());
 ```
 
@@ -71,23 +71,23 @@ const data: TvResponse = await fetch(
 import requests
 
 data = requests.get(
-  'https://vyla-api.pages.dev/api/tv',
+  'https://missourimonster-vyla-api.hf.space/api/tv',
   params={'id': 1396, 'season': 1, 'episode': 1}
 ).json()
 
 for source in data['sources']:
-    print(f"{source['label']}: https://vyla-api.pages.dev{source['url']}")
+    print(f"{source['label']}: https://missourimonster-vyla-api.hf.space{source['url']}")
 ```
 
 ```swift Swift
-let url = URL(string: "https://vyla-api.pages.dev/api/tv?id=1396&season=1&episode=1")!
+let url = URL(string: "https://missourimonster-vyla-api.hf.space/api/tv?id=1396&season=1&episode=1")!
 
 let (data, _) = try await URLSession.shared.data(from: url)
 let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
 let sources = json["sources"] as! [[String: String]]
 
 for source in sources {
-    print("\(source["label"]!): https://vyla-api.pages.dev\(source["url"]!)")
+    print("\(source["label"]!): https://missourimonster-vyla-api.hf.space\(source["url"]!)")
 }
 ```
 </CodeGroup>
@@ -107,7 +107,7 @@ for source in sources {
       Human-readable provider name.
     </ResponseField>
     <ResponseField name="url" type="string">
-      Proxied HLS stream URL with M3U8 segments rewritten. Prepend `https://vyla-api.pages.dev` for an absolute URL, then pass to `hls.loadSource()`.
+      Proxied HLS stream URL with M3U8 segments rewritten. Prepend `https://missourimonster-vyla-api.hf.space` for an absolute URL, then pass to `hls.loadSource()`.
     </ResponseField>
   </Expandable>
 </ResponseField>

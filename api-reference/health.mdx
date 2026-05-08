@@ -1,6 +1,6 @@
 ---
 title: Health Check
-api: "GET https://vyla-api.pages.dev/api/health"
+api: "GET https://missourimonster-vyla-api.hf.space/api/health"
 description: Probe all six providers in real time and get per-source latency and status.
 ---
 
@@ -16,11 +16,11 @@ The health endpoint probes every configured provider using a known-good TMDB ID 
 
 <CodeGroup>
 ```bash cURL
-curl https://vyla-api.pages.dev/api/health
+curl https://missourimonster-vyla-api.hf.space/api/health
 ```
 
 ```javascript JavaScript
-const res  = await fetch('https://vyla-api.pages.dev/api/health');
+const res  = await fetch('https://missourimonster-vyla-api.hf.space/api/health');
 const data = await res.json();
 
 if (data.status !== 'ok') {
@@ -34,7 +34,7 @@ if (data.status !== 'ok') {
 ```python Python
 import requests
 
-data = requests.get('https://vyla-api.pages.dev/api/health').json()
+data = requests.get('https://missourimonster-vyla-api.hf.space/api/health').json()
 print(data['status'])
 
 for source, info in data['sources'].items():
@@ -60,7 +60,7 @@ interface HealthResponse {
 }
 
 const data: HealthResponse = await fetch(
-  'https://vyla-api.pages.dev/api/health'
+  'https://missourimonster-vyla-api.hf.space/api/health'
 ).then(r => r.json());
 ```
 </CodeGroup>

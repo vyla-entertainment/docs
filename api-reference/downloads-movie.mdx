@@ -1,6 +1,6 @@
 ---
 title: Movie Downloads
-api: "GET https://vyla-api.pages.dev/api/downloads/movie/{tmdb_id}"
+api: "GET https://missourimonster-vyla-api.hf.space/api/downloads/movie/{tmdb_id}"
 description: Fetch direct download links for movies with quality labels and file sizes.
 ---
 
@@ -10,7 +10,7 @@ The movie downloads endpoint returns direct download links sourced from `source1
 
 ## API Endpoint
 
-<api>GET https://vyla-api.pages.dev/api/downloads/movie/{tmdb_id}</api>
+<api>GET https://missourimonster-vyla-api.hf.space/api/downloads/movie/{tmdb_id}</api>
 
 ### Path Parameters
 
@@ -24,11 +24,11 @@ The movie downloads endpoint returns direct download links sourced from `source1
 
 <CodeGroup>
 ```bash cURL
-curl https://vyla-api.pages.dev/api/downloads/movie/550
+curl https://missourimonster-vyla-api.hf.space/api/downloads/movie/550
 ```
 
 ```javascript JavaScript
-const res  = await fetch('https://vyla-api.pages.dev/api/downloads/movie/550');
+const res  = await fetch('https://missourimonster-vyla-api.hf.space/api/downloads/movie/550');
 const data = await res.json();
 
 data.downloads.forEach(dl => {
@@ -40,7 +40,7 @@ data.downloads.forEach(dl => {
 import requests
 
 data = requests.get(
-  'https://vyla-api.pages.dev/api/downloads/movie/550'
+  'https://missourimonster-vyla-api.hf.space/api/downloads/movie/550'
 ).json()
 
 for dl in data['downloads']:
@@ -117,7 +117,7 @@ for dl in data['downloads']:
 ```javascript
 async function addMovieDownloadButtons(tmdbId, containerEl) {
   const res = await fetch(
-    `https://vyla-api.pages.dev/api/downloads/movie/${tmdbId}`
+    `https://missourimonster-vyla-api.hf.space/api/downloads/movie/${tmdbId}`
   );
 
   if (!res.ok) {

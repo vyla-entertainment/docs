@@ -35,7 +35,7 @@ yarn add hls.js
 
   <script src="https://cdn.jsdelivr.net/npm/hls.js@latest/dist/hls.min.js"></script>
   <script>
-    const BASE = 'https://vyla-api.pages.dev';
+    const BASE = 'https://missourimonster-vyla-api.hf.space';
 
     async function play(tmdbId) {
       const data = await fetch(`${BASE}/api/movie?id=${tmdbId}`)
@@ -78,7 +78,7 @@ Build a source picker so users can switch providers if one is buffering:
 <div id="sources"></div>
 
 <script>
-  const BASE = 'https://vyla-api.pages.dev';
+  const BASE = 'https://missourimonster-vyla-api.hf.space';
   let hls;
 
   async function loadMovie(tmdbId) {
@@ -198,7 +198,7 @@ A production-ready player component with source switching, subtitle selection, q
 import { useEffect, useRef, useState, useCallback } from 'react';
 import Hls from 'hls.js';
 
-const BASE = 'https://vyla-api.pages.dev';
+const BASE = 'https://missourimonster-vyla-api.hf.space';
 
 interface Source   { source: string; label: string; url: string; }
 interface Subtitle { label: string; file: string; }
@@ -322,7 +322,7 @@ Safari has native HLS support via `<video>` and doesn't need HLS.js. Detect and 
 
 ```javascript
 function loadHls(videoEl, url) {
-  const fullUrl = 'https://vyla-api.pages.dev' + url;
+  const fullUrl = 'https://missourimonster-vyla-api.hf.space' + url;
 
   if (Hls.isSupported()) {
     const hls = new Hls();

@@ -22,11 +22,11 @@ Call `/api/movie` or `/api/tv`. The API fans out to all providers in parallel, v
 
 <CodeGroup>
 ```bash Movie
-curl https://vyla-api.pages.dev/api/movie?id=550
+curl https://missourimonster-vyla-api.hf.space/api/movie?id=550
 ```
 
 ```bash TV Episode
-curl "https://vyla-api.pages.dev/api/tv?id=1396&season=1&episode=1"
+curl "https://missourimonster-vyla-api.hf.space/api/tv?id=1396&season=1&episode=1"
 ```
 </CodeGroup>
 
@@ -82,7 +82,7 @@ The `url` field on each source is already proxied, CORS-safe, and ready to pass 
       <video id="player" controls style="width:100%"></video>
 
       <script>
-        const BASE = 'https://vyla-api.pages.dev';
+        const BASE = 'https://missourimonster-vyla-api.hf.space';
 
         async function loadMovie(tmdbId) {
           const res  = await fetch(`${BASE}/api/movie?id=${tmdbId}`);
@@ -119,7 +119,7 @@ The `url` field on each source is already proxied, CORS-safe, and ready to pass 
     import { useEffect, useRef } from 'react';
     import Hls from 'hls.js';
 
-    const BASE = 'https://vyla-api.pages.dev';
+    const BASE = 'https://missourimonster-vyla-api.hf.space';
 
     export function Player({ tmdbId }: { tmdbId: number }) {
       const videoRef = useRef<HTMLVideoElement>(null);
@@ -155,7 +155,7 @@ The `url` field on each source is already proxied, CORS-safe, and ready to pass 
     import { useEffect, useRef } from 'react';
     import dynamic from 'next/dynamic';
 
-    const BASE = 'https://vyla-api.pages.dev';
+    const BASE = 'https://missourimonster-vyla-api.hf.space';
 
     export default function Player({ tmdbId }: { tmdbId: number }) {
       const videoRef = useRef<HTMLVideoElement>(null);
@@ -184,7 +184,7 @@ The `url` field on each source is already proxied, CORS-safe, and ready to pass 
     ```python
     import requests
 
-    BASE = "https://vyla-api.pages.dev"
+    BASE = "https://missourimonster-vyla-api.hf.space"
 
     def get_sources(tmdb_id: int, season: int = None, episode: int = None):
         if season and episode:
@@ -218,7 +218,7 @@ The `url` field on each source is already proxied, CORS-safe, and ready to pass 
 Providers can go down at any time. Build a fallback loop so your player automatically tries the next source on failure.
 
 ```typescript
-const BASE = 'https://vyla-api.pages.dev';
+const BASE = 'https://missourimonster-vyla-api.hf.space';
 
 async function loadWithFallback(
   videoEl: HTMLVideoElement,
@@ -271,12 +271,12 @@ Subtitles are included automatically in movie and TV responses. You can also fet
 ```javascript
 // Already included in /api/movie and /api/tv responses
 const { sources, subtitles } = await fetch(
-  'https://vyla-api.pages.dev/api/movie?id=550'
+  'https://missourimonster-vyla-api.hf.space/api/movie?id=550'
 ).then(r => r.json());
 
 // Or fetch standalone
 const subtitles = await fetch(
-  'https://vyla-api.pages.dev/api/subtitles/movie/550'
+  'https://missourimonster-vyla-api.hf.space/api/subtitles/movie/550'
 ).then(r => r.json());
 
 // Apply to video element
@@ -297,7 +297,7 @@ subtitles.forEach(sub => {
 Before building, verify which providers are currently live:
 
 ```bash
-curl https://vyla-api.pages.dev/api/health
+curl https://missourimonster-vyla-api.hf.space/api/health
 ```
 
 ```json
@@ -325,10 +325,10 @@ Use `/api/test` to check a specific provider without going through the full fano
 
 ```bash
 # Test Source1 for Fight Club
-curl "https://vyla-api.pages.dev/api/test/550?source=source1"
+curl "https://missourimonster-vyla-api.hf.space/api/test/550?source=source1"
 
 # Test Source2 for Breaking Bad S1E1
-curl "https://vyla-api.pages.dev/api/test/1396?season=1&episode=1&source=source2"
+curl "https://missourimonster-vyla-api.hf.space/api/test/1396?season=1&episode=1&source=source2"
 ```
 
 <Card title="Full API Reference →" href="/api-reference/movie" icon="book">

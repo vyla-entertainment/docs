@@ -29,7 +29,7 @@ All errors return JSON with a single `error` field:
 The most common failure. All six providers failed to return a playable stream.
 
 ```typescript
-const res  = await fetch('https://vyla-api.pages.dev/api/movie?id=550');
+const res  = await fetch('https://missourimonster-vyla-api.hf.space/api/movie?id=550');
 const data = await res.json();
 
 if (res.status === 502 || !data.sources?.length) {
@@ -55,7 +55,7 @@ Providers can fail mid-stream (e.g., after the manifest loads but during segment
 ```typescript
 import Hls from 'hls.js';
 
-const BASE = 'https://vyla-api.pages.dev';
+const BASE = 'https://missourimonster-vyla-api.hf.space';
 
 interface Source {
   source: string;
@@ -134,7 +134,7 @@ async function fetchWithTimeout(
 // Use in your loader
 try {
   const res  = await fetchWithTimeout(
-    'https://vyla-api.pages.dev/api/movie?id=550',
+    'https://missourimonster-vyla-api.hf.space/api/movie?id=550',
     12000 // 12 second client timeout
   );
   const data = await res.json();
@@ -153,7 +153,7 @@ Subtitles are not guaranteed for every title. Always handle the empty array case
 
 ```typescript
 const data = await fetch(
-  'https://vyla-api.pages.dev/api/movie?id=550'
+  'https://missourimonster-vyla-api.hf.space/api/movie?id=550'
 ).then(r => r.json());
 
 if (data.subtitles.length === 0) {
@@ -198,7 +198,7 @@ If you're building a dashboard or monitoring tool, check provider health before 
 ```typescript
 async function checkAndLoad(tmdbId: number) {
   const health = await fetch(
-    'https://vyla-api.pages.dev/api/health'
+    'https://missourimonster-vyla-api.hf.space/api/health'
   ).then(r => r.json());
 
   if (health.status === 'degraded') {
@@ -209,7 +209,7 @@ async function checkAndLoad(tmdbId: number) {
   }
 
   // Proceed — degraded just means fewer sources
-  return fetch(`https://vyla-api.pages.dev/api/movie?id=${tmdbId}`)
+  return fetch(`https://missourimonster-vyla-api.hf.space/api/movie?id=${tmdbId}`)
     .then(r => r.json());
 }
 ```
@@ -237,7 +237,7 @@ export function useVylaPlayer(tmdbId: number) {
     let data: any;
     try {
       const res = await fetch(
-        `https://vyla-api.pages.dev/api/movie?id=${tmdbId}`
+        `https://missourimonster-vyla-api.hf.space/api/movie?id=${tmdbId}`
       );
       data = await res.json();
     } catch {
@@ -251,7 +251,7 @@ export function useVylaPlayer(tmdbId: number) {
     }
 
     let index = 0;
-    const BASE = 'https://vyla-api.pages.dev';
+    const BASE = 'https://missourimonster-vyla-api.hf.space';
 
     function trySource() {
       if (index >= data.sources.length) {

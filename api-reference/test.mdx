@@ -1,6 +1,6 @@
 ---
 title: Test a Source
-api: "GET https://vyla-api.pages.dev/api/test/{id}"
+api: "GET https://missourimonster-vyla-api.hf.space/api/test/{id}"
 description: Debug a single provider in isolation — get the raw URL, proxy URL, elapsed time, and error details.
 ---
 
@@ -42,17 +42,17 @@ Tests one specific provider for a given TMDB ID without running the full paralle
 
 <CodeGroup>
 ```bash Movie
-curl "https://vyla-api.pages.dev/api/test/550?source=source1"
+curl "https://missourimonster-vyla-api.hf.space/api/test/550?source=source1"
 ```
 
 ```bash TV Episode
-curl "https://vyla-api.pages.dev/api/test/1396?season=1&episode=1&source=source2"
+curl "https://missourimonster-vyla-api.hf.space/api/test/1396?season=1&episode=1&source=source2"
 ```
 
 ```javascript JavaScript
 // Test a single provider
 const res = await fetch(
-  'https://vyla-api.pages.dev/api/test/550?source=source1'
+  'https://missourimonster-vyla-api.hf.space/api/test/550?source=source1'
 );
 const data = await res.json();
 
@@ -77,7 +77,7 @@ interface TestResponse {
 }
 
 const data: TestResponse = await fetch(
-  'https://vyla-api.pages.dev/api/test/550?source=source1'
+  'https://missourimonster-vyla-api.hf.space/api/test/550?source=source1'
 ).then(r => r.json());
 ```
 
@@ -85,7 +85,7 @@ const data: TestResponse = await fetch(
 import requests
 
 res = requests.get(
-  'https://vyla-api.pages.dev/api/test/550',
+  'https://missourimonster-vyla-api.hf.space/api/test/550',
   params={'source': 'source1'}
 ).json()
 
@@ -201,7 +201,7 @@ if res['error']:
 To test all providers in a loop and find which are working for a given title:
 
 ```javascript
-const BASE    = 'https://vyla-api.pages.dev';
+const BASE    = 'https://missourimonster-vyla-api.hf.space';
 const SOURCES = ['source1', 'source2', 'source3', 'source4', 'source5', 'source6'];
 
 async function testAll(tmdbId, season, episode) {

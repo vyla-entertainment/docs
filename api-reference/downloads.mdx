@@ -1,6 +1,6 @@
 ---
 title: Download Links
-api: "GET https://vyla-api.pages.dev/api/downloads/movie/{tmdb_id}"
+api: "GET https://missourimonster-vyla-api.hf.space/api/downloads/movie/{tmdb_id}"
 description: Fetch direct download links for movies and TV episodes with quality labels and file sizes.
 ---
 
@@ -10,7 +10,7 @@ The downloads endpoints return direct download links sourced from `source1.com`.
 
 ## Movie Downloads
 
-<api>GET https://vyla-api.pages.dev/api/downloads/movie/{tmdb_id}</api>
+<api>GET https://missourimonster-vyla-api.hf.space/api/downloads/movie/{tmdb_id}</api>
 
 ### Path Parameters
 
@@ -22,11 +22,11 @@ The downloads endpoints return direct download links sourced from `source1.com`.
 
 <CodeGroup>
 ```bash cURL
-curl https://vyla-api.pages.dev/api/downloads/movie/550
+curl https://missourimonster-vyla-api.hf.space/api/downloads/movie/550
 ```
 
 ```javascript JavaScript
-const res  = await fetch('https://vyla-api.pages.dev/api/downloads/movie/550');
+const res  = await fetch('https://missourimonster-vyla-api.hf.space/api/downloads/movie/550');
 const data = await res.json();
 
 data.downloads.forEach(dl => {
@@ -38,7 +38,7 @@ data.downloads.forEach(dl => {
 import requests
 
 data = requests.get(
-  'https://vyla-api.pages.dev/api/downloads/movie/550'
+  'https://missourimonster-vyla-api.hf.space/api/downloads/movie/550'
 ).json()
 
 for dl in data['downloads']:
@@ -77,7 +77,7 @@ for dl in data['downloads']:
 
 ## TV Episode Downloads
 
-<api>GET https://vyla-api.pages.dev/api/downloads/tv/{tmdb_id}/{season}/{episode}</api>
+<api>GET https://missourimonster-vyla-api.hf.space/api/downloads/tv/{tmdb_id}/{season}/{episode}</api>
 
 ### Path Parameters
 
@@ -97,12 +97,12 @@ for dl in data['downloads']:
 
 <CodeGroup>
 ```bash cURL
-curl https://vyla-api.pages.dev/api/downloads/tv/1396/1/1
+curl https://missourimonster-vyla-api.hf.space/api/downloads/tv/1396/1/1
 ```
 
 ```javascript JavaScript
 const res  = await fetch(
-  'https://vyla-api.pages.dev/api/downloads/tv/1396/1/1'
+  'https://missourimonster-vyla-api.hf.space/api/downloads/tv/1396/1/1'
 );
 const data = await res.json();
 ```
@@ -165,7 +165,7 @@ Same structure as movie downloads.
 ```javascript
 async function addDownloadButtons(tmdbId, containerEl) {
   const res = await fetch(
-    `https://vyla-api.pages.dev/api/downloads/movie/${tmdbId}`
+    `https://missourimonster-vyla-api.hf.space/api/downloads/movie/${tmdbId}`
   );
 
   if (!res.ok) {

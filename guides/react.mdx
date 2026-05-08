@@ -15,7 +15,7 @@ A reusable hook that handles fetching, loading state, and error handling for mov
 // hooks/useVylaMovie.ts
 import { useState, useEffect } from 'react';
 
-const BASE = 'https://vyla-api.pages.dev';
+const BASE = 'https://missourimonster-vyla-api.hf.space';
 
 interface Source   { source: string; label: string; url: string; }
 interface Subtitle { label: string; file: string; }
@@ -70,7 +70,7 @@ Same pattern for TV episodes:
 // hooks/useVylaTv.ts
 import { useState, useEffect } from 'react';
 
-const BASE = 'https://vyla-api.pages.dev';
+const BASE = 'https://missourimonster-vyla-api.hf.space';
 
 interface VylaTvParams {
   seriesId: number | null;
@@ -115,7 +115,7 @@ A clean player component that uses the hooks above:
 import { useEffect, useRef } from 'react';
 import { useVylaMovie } from '@/hooks/useVylaMovie';
 
-const BASE = 'https://vyla-api.pages.dev';
+const BASE = 'https://missourimonster-vyla-api.hf.space';
 
 export function MoviePlayer({ tmdbId }: { tmdbId: number }) {
   const videoRef = useRef<HTMLVideoElement>(null);

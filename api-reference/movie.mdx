@@ -1,6 +1,6 @@
 ---
 title: Movie Sources
-api: "GET https://vyla-api.pages.dev/api/movie"
+api: "GET https://missourimonster-vyla-api.hf.space/api/movie"
 description: Fetch all working HLS sources, subtitle tracks, and TMDB metadata for a movie.
 ---
 
@@ -24,11 +24,11 @@ Every `url` in the response is already routed through the Cloudflare HLS proxy w
 
 <CodeGroup>
 ```bash cURL
-curl "https://vyla-api.pages.dev/api/movie?id=550"
+curl "https://missourimonster-vyla-api.hf.space/api/movie?id=550"
 ```
 
 ```javascript JavaScript
-const res  = await fetch('https://vyla-api.pages.dev/api/movie?id=550');
+const res  = await fetch('https://missourimonster-vyla-api.hf.space/api/movie?id=550');
 const data = await res.json();
 
 const sources   = data.sources;   // verified HLS sources
@@ -55,7 +55,7 @@ interface MovieResponse {
 }
 
 const data: MovieResponse = await fetch(
-  'https://vyla-api.pages.dev/api/movie?id=550'
+  'https://missourimonster-vyla-api.hf.space/api/movie?id=550'
 ).then(r => r.json());
 ```
 
@@ -63,12 +63,12 @@ const data: MovieResponse = await fetch(
 import requests
 
 data = requests.get(
-  'https://vyla-api.pages.dev/api/movie',
+  'https://missourimonster-vyla-api.hf.space/api/movie',
   params={'id': 550}
 ).json()
 
 for source in data['sources']:
-    print(f"{source['label']}: https://vyla-api.pages.dev{source['url']}")
+    print(f"{source['label']}: https://missourimonster-vyla-api.hf.space{source['url']}")
 ```
 
 ```go Go
@@ -93,14 +93,14 @@ type MovieResponse struct {
 }
 
 func main() {
-  res, _ := http.Get("https://vyla-api.pages.dev/api/movie?id=550")
+  res, _ := http.Get("https://missourimonster-vyla-api.hf.space/api/movie?id=550")
   defer res.Body.Close()
 
   var data MovieResponse
   json.NewDecoder(res.Body).Decode(&data)
 
   for _, s := range data.Sources {
-    fmt.Printf("%s: https://vyla-api.pages.dev%s\n", s.Label, s.URL)
+    fmt.Printf("%s: https://missourimonster-vyla-api.hf.space%s\n", s.Label, s.URL)
   }
 }
 ```
@@ -123,7 +123,7 @@ func main() {
     <ResponseField name="url" type="string">
       Proxied HLS stream URL. All M3U8 segment and encryption key URIs are rewritten to route through the same Cloudflare origin. Pass directly to `hls.loadSource()`.
 
-      **Important:** Prepend `https://vyla-api.pages.dev` if your player requires an absolute URL.
+      **Important:** Prepend `https://missourimonster-vyla-api.hf.space` if your player requires an absolute URL.
     </ResponseField>
   </Expandable>
 </ResponseField>
@@ -227,7 +227,7 @@ func main() {
     The `url` field is a relative path beginning with `/api?url=...`. Prepend the base URL when constructing absolute URLs for your player:
 
     ```javascript
-    const streamUrl = 'https://vyla-api.pages.dev' + source.url;
+    const streamUrl = 'https://missourimonster-vyla-api.hf.space' + source.url;
     hls.loadSource(streamUrl);
     ```
   </Accordion>
