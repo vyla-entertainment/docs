@@ -19,7 +19,7 @@ On every `/api/movie` or `/api/tv` request:
 The total response time is determined by the slowest provider that returns a verified URL.
 
 <Tip>
-  To see which providers are currently configured and their live status, call [`/api/health`](https://missourimonster-vyla-api.hf.space/api/health). Provider keys, labels, and timeouts are also available at [`/api?sources_meta=1`](https://missourimonster-vyla-api.hf.space/api?sources_meta=1).
+  To see which providers are currently configured and their live status, call [`/api/health`](https://missourimonster-vyla-api.hf.space/api/health). Provider keys, labels, and timeouts are also available at [`/api/sources`](https://missourimonster-vyla-api.hf.space/api/sources).
 </Tip>
 
 ---
@@ -108,7 +108,7 @@ Providers marked `disabled: true` in config are completely excluded from:
 
 - `/api/movie` and `/api/tv` fanout
 - `/api/health` probes
-- `/api?sources_meta=1` listings
+- `/api/sources` listings
 
 If a provider you expect to see is missing from responses, check whether it's been disabled.
 

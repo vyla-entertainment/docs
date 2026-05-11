@@ -25,7 +25,7 @@ Tests one specific provider for a given TMDB ID without running the full paralle
 <ParamField query="source" type="string" required>
   Provider key to test. Must exactly match one of the configured source keys.
 
-  Available keys are listed in the `sources` field of [`/api/health`](https://missourimonster-vyla-api.hf.space/api/health) or [`/api?sources_meta=1`](https://missourimonster-vyla-api.hf.space/api?sources_meta=1).
+  Available keys are listed in the `sources` field of [`/api/health`](https://missourimonster-vyla-api.hf.space/api/health) or [`/api/sources`](https://missourimonster-vyla-api.hf.space/api/sources).
 </ParamField>
 
 <ParamField query="season" type="number">
@@ -204,7 +204,7 @@ const BASE = 'https://missourimonster-vyla-api.hf.space';
 
 async function testAll(tmdbId, season, episode) {
   // First, get the current list of provider keys
-  const meta = await fetch(`${BASE}/api?sources_meta=1`).then(r => r.json());
+  const meta = await fetch(`${BASE}/api/sources`).then(r => r.json());
   const sourceKeys = meta.sources.map(s => s.key);
 
   const params = season && episode
