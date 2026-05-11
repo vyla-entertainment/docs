@@ -37,12 +37,12 @@ curl "https://missourimonster-vyla-api.hf.space/api/tv?id=1396&season=1&episode=
     {
       "source": "provider-a",
       "label": "Provider A",
-      "url": "/api?url=https%3A%2F%2F...&pa=1"
+"url": "https://missourimonster-vyla-api.hf.space/api?url=https%3A%2F%2F...&pa=1"
     },
     {
       "source": "provider-b",
       "label": "Provider B",
-      "url": "/api?url=https%3A%2F%2F...&pb=1"
+      "url": "https://missourimonster-vyla-api.hf.space/api?url=https%3A%2F%2F...&pb=1"
     }
   ],
   "subtitles": [
@@ -72,7 +72,7 @@ curl "https://missourimonster-vyla-api.hf.space/api/tv?id=1396&season=1&episode=
 
 ## Step 2 — Play with HLS.js
 
-The `url` field on each source is already proxied, CORS-safe, and ready to pass directly to your player. Prepend the base URL to make it absolute.
+The `url` field on each source is a fully-qualified URL — the base is already baked in. Pass it directly to your player with no modification needed.
 
 <Tabs>
   <Tab title="Vanilla JS">
@@ -86,27 +86,23 @@ The `url` field on each source is already proxied, CORS-safe, and ready to pass 
       <video id="player" controls style="width:100%"></video>
 
       <script>
-        const BASE = 'https://missourimonster-vyla-api.hf.space';
-
         async function loadMovie(tmdbId) {
-          const res  = await fetch(`${BASE}/api/movie?id=${tmdbId}`);
+          const res  = await fetch(`https://missourimonster-vyla-api.hf.space/api/movie?id=${tmdbId}`);
           const data = await res.json();
           if (!data.sources?.length) return console.error('No sources');
 
           const video = document.getElementById('player');
 
           if (!Hls.isSupported()) {
-            // Safari: native HLS
-            video.src = BASE + data.sources[0].url;
+            video.src = data.sources[0].url;
             return;
           }
 
           const hls = new Hls();
-          hls.loadSource(BASE + data.sources[0].url);
+          hls.loadSource(data.sources[0].url);
           hls.attachMedia(video);
 
           hls.on(Hls.Events.MANIFEST_PARSED, () => {
-            // Attach subtitle tracks
             data.subtitles.forEach(sub => {
               const track  = document.createElement('track');
               track.kind   = 'subtitles';
@@ -129,8 +125,6 @@ The `url` field on each source is already proxied, CORS-safe, and ready to pass 
     import { useEffect, useRef } from 'react';
     import Hls from 'hls.js';
 
-    const BASE = 'https://missourimonster-vyla-api.hf.space';
-
     export function Player({ tmdbId }: { tmdbId: number }) {
       const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -138,17 +132,17 @@ The `url` field on each source is already proxied, CORS-safe, and ready to pass 
         let hls: Hls;
 
         async function load() {
-          const res  = await fetch(`${BASE}/api/movie?id=${tmdbId}`);
+          const res  = await fetch(`https://missourimonster-vyla-api.hf.space/api/movie?id=${tmdbId}`);
           const data = await res.json();
           if (!data.sources?.length || !videoRef.current) return;
 
           if (!Hls.isSupported()) {
-            videoRef.current.src = BASE + data.sources[0].url;
+            videoRef.current.src = data.sources[0].url;
             return;
           }
 
           hls = new Hls();
-          hls.loadSource(BASE + data.sources[0].url);
+          hls.loadSource(data.sources[0].url);
           hls.attachMedia(videoRef.current);
           hls.on(Hls.Events.MANIFEST_PARSED, () => {
             videoRef.current?.play();
@@ -168,22 +162,19 @@ The `url` field on each source is already proxied, CORS-safe, and ready to pass 
     'use client';
     import { useEffect, useRef } from 'react';
 
-    const BASE = 'https://missourimonster-vyla-api.hf.space';
-
     export default function Player({ tmdbId }: { tmdbId: number }) {
       const videoRef = useRef<HTMLVideoElement>(null);
 
       useEffect(() => {
-        // Dynamic import keeps Hls out of the SSR bundle
         import('hls.js').then(({ default: Hls }) => {
           if (!Hls.isSupported() || !videoRef.current) return;
 
-          fetch(`${BASE}/api/movie?id=${tmdbId}`)
+          fetch(`https://missourimonster-vyla-api.hf.space/api/movie?id=${tmdbId}`)
             .then(r => r.json())
             .then(data => {
               if (!data.sources?.length) return;
               const hls = new Hls();
-              hls.loadSource(BASE + data.sources[0].url);
+              hls.loadSource(data.sources[0].url);
               hls.attachMedia(videoRef.current!);
             });
         });
@@ -216,10 +207,9 @@ The `url` field on each source is already proxied, CORS-safe, and ready to pass 
             "subtitles": data.get("subtitles", []),
         }
 
-    # Example
     result = get_sources(550)
     for source in result["sources"]:
-        print(f"{source['label']}: {BASE}{source['url']}")
+        print(f"{source['label']}: {source['url']}")
     ```
   </Tab>
 </Tabs>
@@ -231,8 +221,6 @@ The `url` field on each source is already proxied, CORS-safe, and ready to pass 
 Providers can go down at any time. Build a fallback loop so your player automatically tries the next source on failure.
 
 ```typescript
-const BASE = 'https://missourimonster-vyla-api.hf.space';
-
 async function loadWithFallback(
   videoEl: HTMLVideoElement,
   tmdbId: number,
@@ -240,13 +228,13 @@ async function loadWithFallback(
   episode?: number
 ) {
   const endpoint = season && episode
-    ? `${BASE}/api/tv?id=${tmdbId}&season=${season}&episode=${episode}`
-    : `${BASE}/api/movie?id=${tmdbId}`;
+    ? `https://missourimonster-vyla-api.hf.space/api/tv?id=${tmdbId}&season=${season}&episode=${episode}`
+    : `https://missourimonster-vyla-api.hf.space/api/movie?id=${tmdbId}`;
 
   const data = await fetch(endpoint).then(r => r.json());
   if (!data.sources?.length) throw new Error('No sources available');
 
-  const urls: string[] = data.sources.map((s: any) => BASE + s.url);
+  const urls: string[] = data.sources.map((s: any) => s.url);
   let index = 0;
   let hls: any;
 

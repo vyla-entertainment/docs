@@ -39,10 +39,8 @@ The simplest possible setup — one file, no bundler required:
   <video id="player" controls style="width: 100%; max-width: 900px;"></video>
 
   <script>
-    const BASE = 'https://missourimonster-vyla-api.hf.space';
-
     async function play(tmdbId) {
-      const data = await fetch(`${BASE}/api/movie?id=${tmdbId}`)
+      const data = await fetch(`https://missourimonster-vyla-api.hf.space/api/movie?id=${tmdbId}`)
         .then(r => r.json());
 
       if (!data.sources?.length) {
@@ -53,18 +51,17 @@ The simplest possible setup — one file, no bundler required:
       const video = document.getElementById('player');
 
       if (!Hls.isSupported()) {
-        // Safari: native HLS
-        video.src = BASE + data.sources[0].url;
+        video.src = data.sources[0].url;
         return;
       }
 
       const hls = new Hls();
-      hls.loadSource(BASE + data.sources[0].url);
+      hls.loadSource(data.sources[0].url);
       hls.attachMedia(video);
       hls.on(Hls.Events.MANIFEST_PARSED, () => video.play());
     }
 
-    play(550); // Fight Club
+    play(550);
   </script>
 </body>
 </html>
@@ -97,11 +94,10 @@ A more complete HTML player with a source picker UI and subtitle tracks:
   <div id="status">Loading…</div>
 
   <script>
-    const BASE = 'https://missourimonster-vyla-api.hf.space';
     let hls;
 
     async function loadMovie(tmdbId) {
-      const data = await fetch(`${BASE}/api/movie?id=${tmdbId}`).then(r => r.json());
+      const data = await fetch(`https://missourimonster-vyla-api.hf.space/api/movie?id=${tmdbId}`).then(r => r.json());
 
       if (!data.sources?.length) {
         document.getElementById('status').textContent = 'No sources available.';
@@ -147,7 +143,7 @@ A more complete HTML player with a source picker UI and subtitle tracks:
         if (err.fatal) status.textContent = 'Source error — try another.';
       });
 
-      hls.loadSource(BASE + url);
+      hls.loadSource(url);
       hls.attachMedia(video);
     }
 
@@ -196,8 +192,6 @@ A reusable hook that handles fetching, loading state, and error handling:
 // hooks/useVyla.ts
 import { useState, useEffect } from 'react';
 
-const BASE = 'https://missourimonster-vyla-api.hf.space';
-
 interface Source   { source: string; label: string; url: string; }
 interface Subtitle { label: string; file: string; type: string; source: string; }
 
@@ -224,8 +218,8 @@ export function useVyla({ tmdbId, season, episode }: VylaParams): VylaState {
     if (!tmdbId) return;
 
     const url = season && episode
-      ? `${BASE}/api/tv?id=${tmdbId}&season=${season}&episode=${episode}`
-      : `${BASE}/api/movie?id=${tmdbId}`;
+      ? `https://missourimonster-vyla-api.hf.space/api/tv?id=${tmdbId}&season=${season}&episode=${episode}`
+      : `https://missourimonster-vyla-api.hf.space/api/movie?id=${tmdbId}`;
 
     setState(s => ({ ...s, loading: true, error: null }));
 
@@ -263,8 +257,6 @@ import { useEffect, useRef, useState } from 'react';
 import Hls from 'hls.js';
 import { useVyla } from '@/hooks/useVyla';
 
-const BASE = 'https://missourimonster-vyla-api.hf.space';
-
 interface VylaPlayerProps {
   tmdbId:   number;
   season?:  number;
@@ -287,7 +279,7 @@ export function VylaPlayer({ tmdbId, season, episode }: VylaPlayerProps) {
     hlsRef.current?.destroy();
 
     if (!Hls.isSupported()) {
-      videoRef.current.src = BASE + sources[active].url;
+      videoRef.current.src = sources[active].url;
       return;
     }
 
@@ -303,7 +295,7 @@ export function VylaPlayer({ tmdbId, season, episode }: VylaPlayerProps) {
       if (err.fatal && active < sources.length - 1) setActive(i => i + 1);
     });
 
-    hls.loadSource(BASE + sources[active].url);
+    hls.loadSource(sources[active].url);
     hls.attachMedia(videoRef.current);
 
     return () => hls.destroy();
@@ -468,19 +460,16 @@ export function EpisodeList({
 Safari has native HLS support and doesn't need HLS.js. Detect and handle both:
 
 ```javascript
-function loadHls(videoEl, relativeUrl) {
-  const url = 'https://missourimonster-vyla-api.hf.space' + relativeUrl;
-
+function loadHls(videoEl, sourceUrl) {
   if (Hls.isSupported()) {
     const hls = new Hls();
-    hls.loadSource(url);
+    hls.loadSource(sourceUrl);
     hls.attachMedia(videoEl);
     return hls;
   }
 
   if (videoEl.canPlayType('application/vnd.apple.mpegurl')) {
-    // Safari native HLS
-    videoEl.src = url;
+    videoEl.src = sourceUrl;
     return null;
   }
 
