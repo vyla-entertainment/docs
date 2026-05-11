@@ -4,10 +4,10 @@ api: "GET https://missourimonster-vyla-api.hf.space/api/test/{id}"
 description: Debug a single provider in isolation — get the raw URL, proxy URL, elapsed time, and error details.
 ---
 
-Tests one specific provider for a given TMDB ID without running the full parallel fanout or live verification. Useful for debugging why a source isn't appearing in movie or TV responses, or for checking provider availability before building.
+Tests one specific provider for a given TMDB ID without running the full parallel fanout. Useful for debugging why a source isn't appearing in movie or TV responses, or for checking a provider's availability before building.
 
 <Note>
-  This endpoint does **not** verify the returned URL. Unlike `/api/movie` and `/api/tv`, it returns whatever the provider gives back — including potentially broken URLs. Use `ok: true` as a soft indicator only.
+  This endpoint **does** run stream verification (the same `#EXTM3U` check as `/api/movie` and `/api/tv`). The `ok` field reflects whether a verified, playable URL was found — not just whether the provider returned something.
 </Note>
 
 ---
@@ -23,9 +23,9 @@ Tests one specific provider for a given TMDB ID without running the full paralle
 ## Query Parameters
 
 <ParamField query="source" type="string" required>
-  Provider key to test. Must match one of the configured source keys exactly.
+  Provider key to test. Must exactly match one of the configured source keys.
 
-  Available values: `source1`, `source2`, `source3`, `source4`, `source5`, `source6`
+  Available keys are listed in the `sources` field of [`/api/health`](https://missourimonster-vyla-api.hf.space/api/health) or [`/api?sources_meta=1`](https://missourimonster-vyla-api.hf.space/api?sources_meta=1).
 </ParamField>
 
 <ParamField query="season" type="number">
@@ -42,17 +42,16 @@ Tests one specific provider for a given TMDB ID without running the full paralle
 
 <CodeGroup>
 ```bash Movie
-curl "https://missourimonster-vyla-api.hf.space/api/test/550?source=source1"
+curl "https://missourimonster-vyla-api.hf.space/api/test/550?source=<provider-key>"
 ```
 
 ```bash TV Episode
-curl "https://missourimonster-vyla-api.hf.space/api/test/1396?season=1&episode=1&source=source2"
+curl "https://missourimonster-vyla-api.hf.space/api/test/1396?season=1&episode=1&source=<provider-key>"
 ```
 
 ```javascript JavaScript
-// Test a single provider
 const res = await fetch(
-  'https://missourimonster-vyla-api.hf.space/api/test/550?source=source1'
+  'https://missourimonster-vyla-api.hf.space/api/test/550?source=<provider-key>'
 );
 const data = await res.json();
 
@@ -77,7 +76,7 @@ interface TestResponse {
 }
 
 const data: TestResponse = await fetch(
-  'https://missourimonster-vyla-api.hf.space/api/test/550?source=source1'
+  'https://missourimonster-vyla-api.hf.space/api/test/550?source=<provider-key>'
 ).then(r => r.json());
 ```
 
@@ -86,7 +85,7 @@ import requests
 
 res = requests.get(
   'https://missourimonster-vyla-api.hf.space/api/test/550',
-  params={'source': 'source1'}
+  params={'source': '<provider-key>'}
 ).json()
 
 print(f"ok={res['ok']} elapsed={res['elapsed_ms']}ms")
@@ -116,11 +115,11 @@ if res['error']:
 </ResponseField>
 
 <ResponseField name="ok" type="boolean" required>
-  `true` if the provider returned a non-null URL. Does **not** guarantee the URL is playable — use `/api/movie` or `/api/tv` for verified sources.
+  `true` if the provider returned a URL that passed stream verification.
 </ResponseField>
 
 <ResponseField name="url" type="string | null">
-  Proxied stream URL if the provider returned one. `null` on failure.
+  Proxied stream URL if the provider returned a valid stream. `null` on failure. Prepend the base URL before use.
 </ResponseField>
 
 <ResponseField name="raw_url" type="string | null">
@@ -128,7 +127,7 @@ if res['error']:
 </ResponseField>
 
 <ResponseField name="elapsed_ms" type="number" required>
-  Time in milliseconds from the start of the test to receiving a URL (or failure).
+  Time in milliseconds from the start of the test to receiving a result.
 </ResponseField>
 
 <ResponseField name="error" type="string | null" required>
@@ -143,13 +142,13 @@ if res['error']:
   <Tab title="200 — Source Working">
     ```json
     {
-      "source": "source1",
+      "source": "provider-a",
       "id": "550",
       "s": null,
       "e": null,
       "ok": true,
-      "url": "/api?url=https%3A%2F%2Fplayer.source1.com%2F...&s1=1",
-      "raw_url": "https://player.source1.com/hls/550/master.m3u8",
+      "url": "/api?url=https%3A%2F%2F...&pa=1",
+      "raw_url": "https://...",
       "elapsed_ms": 1204,
       "error": null
     }
@@ -158,13 +157,13 @@ if res['error']:
   <Tab title="200 — TV Episode">
     ```json
     {
-      "source": "source2",
+      "source": "provider-b",
       "id": "1396",
       "s": 1,
       "e": 1,
       "ok": true,
-      "url": "/api?url=https%3A%2F%2Fsource2.com%2F...&s2=1",
-      "raw_url": "https://source2.com/hls/1396/1/1/master.m3u8",
+      "url": "/api?url=https%3A%2F%2F...&pb=1",
+      "raw_url": "https://...",
       "elapsed_ms": 980,
       "error": null
     }
@@ -175,7 +174,7 @@ if res['error']:
 
     ```json
     {
-      "source": "source3",
+      "source": "provider-c",
       "id": "550",
       "s": null,
       "e": null,
@@ -198,19 +197,22 @@ if res['error']:
 
 ## Testing All Sources
 
-To test all providers in a loop and find which are working for a given title:
+To test all providers in one go and see which are working for a given title:
 
 ```javascript
-const BASE    = 'https://missourimonster-vyla-api.hf.space';
-const SOURCES = ['source1', 'source2', 'source3', 'source4', 'source5', 'source6'];
+const BASE = 'https://missourimonster-vyla-api.hf.space';
 
 async function testAll(tmdbId, season, episode) {
+  // First, get the current list of provider keys
+  const meta = await fetch(`${BASE}/api?sources_meta=1`).then(r => r.json());
+  const sourceKeys = meta.sources.map(s => s.key);
+
   const params = season && episode
     ? `?season=${season}&episode=${episode}`
-    : '';
+    : '?';
 
   const results = await Promise.all(
-    SOURCES.map(source =>
+    sourceKeys.map(source =>
       fetch(`${BASE}/api/test/${tmdbId}${params}&source=${source}`)
         .then(r => r.json())
         .catch(err => ({ source, ok: false, error: err.message, elapsed_ms: null }))
@@ -220,19 +222,13 @@ async function testAll(tmdbId, season, episode) {
   results.forEach(r => {
     const status = r.ok ? '✓' : '✗';
     const time   = r.elapsed_ms != null ? `${r.elapsed_ms}ms` : 'N/A';
-    console.log(`${status} ${r.source.padEnd(8)} ${time.padStart(7)}  ${r.error || ''}`);
+    console.log(`${status} ${r.source.padEnd(12)} ${time.padStart(7)}  ${r.error || ''}`);
   });
 }
 
 testAll(550);
-// ✓ source1   1204ms
-// ✓ source2    980ms
-// ✗ source3     435ms  no stream returned
-// ✓ source4   1540ms
-// ✓ source5   1100ms
-// ✓ source6    620ms
 ```
 
 <Tip>
-  For a quicker overview, use `/api/health` — it probes all providers simultaneously and is optimised for monitoring.
+  For a quick overview without per-provider isolation, use [`/api/health`](https://missourimonster-vyla-api.hf.space/api/health) — it probes all providers simultaneously and is optimised for monitoring.
 </Tip>

@@ -1,13 +1,13 @@
 ---
 title: Health Check
 api: "GET https://missourimonster-vyla-api.hf.space/api/health"
-description: Probe all six providers in real time and get per-source latency and status.
+description: Probe all configured providers in real time and get per-source latency and status.
 ---
 
-The health endpoint probes every configured provider using a known-good TMDB ID (`550` — *Fight Club*) and reports whether each one is up, along with the response time in milliseconds. No parameters needed.
+The health endpoint probes every active provider using a known-good TMDB ID and reports whether each one is up, along with the response time in milliseconds. No parameters needed.
 
 <Note>
-  Health checks are **not cached**. Each call triggers a fresh live probe of all six providers, so expect a 2–5 second response time.
+  Health checks are **not cached**. Each call triggers a fresh live probe of all active providers — expect a response time of 2–10 seconds depending on provider count and speed.
 </Note>
 
 ---
@@ -67,7 +67,7 @@ const data: HealthResponse = await fetch(
 
 ---
 
-## Response
+## Response Fields
 
 <ResponseField name="status" type="string" required>
   Overall health of the API.
@@ -84,11 +84,11 @@ const data: HealthResponse = await fetch(
 </ResponseField>
 
 <ResponseField name="cache" type="number" required>
-  Number of entries currently in the in-memory stream cache. Resets when the Worker cold-starts.
+  Number of entries currently in the in-memory stream cache.
 </ResponseField>
 
 <ResponseField name="probe_id" type="string" required>
-  The TMDB ID used to probe all providers. Always `"550"` (Fight Club).
+  The TMDB ID used to probe all providers during this health check.
 </ResponseField>
 
 <ResponseField name="sources" type="object" required>
@@ -123,14 +123,11 @@ const data: HealthResponse = await fetch(
       "timestamp": "2025-06-01T12:00:00.000Z",
       "tmdb": true,
       "cache": 12,
-      "probe_id": "550",
+      "probe_id": "155",
       "sources": {
-        "source1":  { "ok": true, "ms": 1204 },
-        "source2": { "ok": true, "ms": 980  },
-        "source3":  { "ok": true, "ms": 2100 },
-        "source4": { "ok": true, "ms": 1540 },
-        "source5": { "ok": true, "ms": 1100 },
-        "source6":  { "ok": true, "ms": 620  }
+        "provider-a": { "ok": true, "ms": 1204 },
+        "provider-b": { "ok": true, "ms": 980  },
+        "provider-c": { "ok": true, "ms": 2100 }
       }
     }
     ```
@@ -144,14 +141,11 @@ const data: HealthResponse = await fetch(
       "timestamp": "2025-06-01T12:00:00.000Z",
       "tmdb": true,
       "cache": 4,
-      "probe_id": "550",
+      "probe_id": "155",
       "sources": {
-        "source1":  { "ok": true,  "ms": 1204 },
-        "source2": { "ok": true,  "ms": 980  },
-        "source3":  { "ok": false, "ms": 435  },
-        "source4": { "ok": false, "ms": 1138, "error": "no stream returned" },
-        "source5": { "ok": true, "ms": 1100 },
-        "source6":  { "ok": true, "ms": 620  }
+        "provider-a": { "ok": true,  "ms": 1204 },
+        "provider-b": { "ok": false, "ms": 435  },
+        "provider-c": { "ok": false, "ms": 1138, "error": "no stream returned" }
       }
     }
     ```
@@ -168,5 +162,5 @@ const data: HealthResponse = await fetch(
 | `207` | `"degraded"` | At least one provider down |
 
 <Warning>
-  A `207 Degraded` response does **not** mean the API is unusable. Movie and TV endpoints will still return sources from whichever providers are working. Degrade gracefully in your application — check `data.sources.length > 0` rather than depending on `status === "ok"`.
+  A `207 Degraded` response does **not** mean the API is unusable. Movie and TV endpoints will still return sources from whichever providers are working. Check `data.sources.length > 0` rather than depending on `status === "ok"` when deciding whether to proceed.
 </Warning>

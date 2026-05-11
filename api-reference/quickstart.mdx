@@ -18,7 +18,7 @@ You'll need a TMDB ID for the content you want to stream. Every movie and TV sho
 
 ## Step 1 — Fetch Sources
 
-Call `/api/movie` or `/api/tv`. The API fans out to all providers in parallel, verifies every URL live, and returns only working sources.
+Call `/api/movie` or `/api/tv`. The API fans out to all configured providers in parallel, verifies every URL live, and returns only the working ones.
 
 <CodeGroup>
 ```bash Movie
@@ -35,24 +35,28 @@ curl "https://missourimonster-vyla-api.hf.space/api/tv?id=1396&season=1&episode=
 {
   "sources": [
     {
-      "source": "source1",
-      "label": "Source1",
-      "url": "/api?url=https%3A%2F%2F...&s1=1"
+      "source": "provider-a",
+      "label": "Provider A",
+      "url": "/api?url=https%3A%2F%2F...&pa=1"
     },
     {
-      "source": "source2",
-      "label": "Source2",
-      "url": "/api?url=https%3A%2F%2F...&s2=1"
+      "source": "provider-b",
+      "label": "Provider B",
+      "url": "/api?url=https%3A%2F%2F...&pb=1"
     }
   ],
   "subtitles": [
     {
       "label": "English",
-      "file": "https://cache.vdrk.site/v1/vtt/movie/550/English.vtt"
+      "file": "https://sub.vdrk.site/v1/movie/550/English.vtt",
+      "type": "vtt",
+      "source": "v1"
     },
     {
       "label": "Spanish",
-      "file": "https://cache.vdrk.site/v1/vtt/movie/550/Spanish.vtt"
+      "file": "https://sub.vdrk.site/v1/movie/550/Spanish.vtt",
+      "type": "vtt",
+      "source": "v1"
     }
   ],
   "meta": {
@@ -68,7 +72,7 @@ curl "https://missourimonster-vyla-api.hf.space/api/tv?id=1396&season=1&episode=
 
 ## Step 2 — Play with HLS.js
 
-The `url` field on each source is already proxied, CORS-safe, and ready to pass directly to your player.
+The `url` field on each source is already proxied, CORS-safe, and ready to pass directly to your player. Prepend the base URL to make it absolute.
 
 <Tabs>
   <Tab title="Vanilla JS">
@@ -90,8 +94,14 @@ The `url` field on each source is already proxied, CORS-safe, and ready to pass 
           if (!data.sources?.length) return console.error('No sources');
 
           const video = document.getElementById('player');
-          const hls   = new Hls();
 
+          if (!Hls.isSupported()) {
+            // Safari: native HLS
+            video.src = BASE + data.sources[0].url;
+            return;
+          }
+
+          const hls = new Hls();
           hls.loadSource(BASE + data.sources[0].url);
           hls.attachMedia(video);
 
@@ -132,16 +142,20 @@ The `url` field on each source is already proxied, CORS-safe, and ready to pass 
           const data = await res.json();
           if (!data.sources?.length || !videoRef.current) return;
 
+          if (!Hls.isSupported()) {
+            videoRef.current.src = BASE + data.sources[0].url;
+            return;
+          }
+
           hls = new Hls();
           hls.loadSource(BASE + data.sources[0].url);
           hls.attachMedia(videoRef.current);
-
           hls.on(Hls.Events.MANIFEST_PARSED, () => {
             videoRef.current?.play();
           });
         }
 
-        if (Hls.isSupported()) load();
+        load();
         return () => hls?.destroy();
       }, [tmdbId]);
 
@@ -153,7 +167,6 @@ The `url` field on each source is already proxied, CORS-safe, and ready to pass 
     ```tsx
     'use client';
     import { useEffect, useRef } from 'react';
-    import dynamic from 'next/dynamic';
 
     const BASE = 'https://missourimonster-vyla-api.hf.space';
 
@@ -161,7 +174,7 @@ The `url` field on each source is already proxied, CORS-safe, and ready to pass 
       const videoRef = useRef<HTMLVideoElement>(null);
 
       useEffect(() => {
-        // Dynamic import keeps Hls out of SSR bundle
+        // Dynamic import keeps Hls out of the SSR bundle
         import('hls.js').then(({ default: Hls }) => {
           if (!Hls.isSupported() || !videoRef.current) return;
 
@@ -231,13 +244,14 @@ async function loadWithFallback(
     : `${BASE}/api/movie?id=${tmdbId}`;
 
   const data = await fetch(endpoint).then(r => r.json());
-  const sources: string[] = data.sources.map((s: any) => BASE + s.url);
+  if (!data.sources?.length) throw new Error('No sources available');
 
+  const urls: string[] = data.sources.map((s: any) => BASE + s.url);
   let index = 0;
-  let hls: Hls;
+  let hls: any;
 
   function tryNext() {
-    if (index >= sources.length) {
+    if (index >= urls.length) {
       console.error('All sources exhausted');
       return;
     }
@@ -245,7 +259,7 @@ async function loadWithFallback(
     hls?.destroy();
     hls = new Hls();
 
-    hls.on(Hls.Events.ERROR, (_, err) => {
+    hls.on(Hls.Events.ERROR, (_: any, err: any) => {
       if (err.fatal) {
         console.warn(`Source ${index} failed, trying next`);
         index++;
@@ -253,7 +267,7 @@ async function loadWithFallback(
       }
     });
 
-    hls.loadSource(sources[index]);
+    hls.loadSource(urls[index]);
     hls.attachMedia(videoEl);
     hls.on(Hls.Events.MANIFEST_PARSED, () => videoEl.play());
   }
@@ -266,7 +280,7 @@ async function loadWithFallback(
 
 ## Step 4 — Add Subtitles
 
-Subtitles are included automatically in movie and TV responses. You can also fetch them standalone if you're building a UI that loads them separately.
+Subtitles are included automatically in movie and TV responses. You can also fetch them standalone if needed.
 
 ```javascript
 // Already included in /api/movie and /api/tv responses
@@ -279,7 +293,7 @@ const subtitles = await fetch(
   'https://missourimonster-vyla-api.hf.space/api/subtitles/movie/550'
 ).then(r => r.json());
 
-// Apply to video element
+// Apply to a video element
 subtitles.forEach(sub => {
   const track = Object.assign(document.createElement('track'), {
     kind:  'subtitles',
@@ -304,32 +318,36 @@ curl https://missourimonster-vyla-api.hf.space/api/health
 {
   "status": "ok",
   "timestamp": "2025-01-01T00:00:00.000Z",
+  "tmdb": true,
+  "cache": 0,
+  "probe_id": "155",
   "sources": {
-    "source1":  { "ok": true,  "ms": 1204 },
-    "source2": { "ok": true,  "ms": 980  },
-    "source3":  { "ok": false, "ms": 435  },
-    "source4": { "ok": true,  "ms": 1540 },
-    "source5": { "ok": true,  "ms": 1100 },
-    "source6":  { "ok": true,  "ms": 620  }
+    "provider-a": { "ok": true,  "ms": 1204 },
+    "provider-b": { "ok": true,  "ms": 980  },
+    "provider-c": { "ok": false, "ms": 435  }
   }
 }
 ```
 
-`status: "degraded"` means at least one provider is down. The rest still work — your fallback logic handles it automatically.
+`status: "degraded"` means at least one provider is down — the rest still work and your fallback logic handles it automatically.
 
 ---
 
 ## Debug a Single Provider
 
-Use `/api/test` to check a specific provider without going through the full fanout:
+Use `/api/test` to isolate a specific provider without running the full fanout:
 
 ```bash
-# Test Source1 for Fight Club
-curl "https://missourimonster-vyla-api.hf.space/api/test/550?source=source1"
+# Test a provider for a movie
+curl "https://missourimonster-vyla-api.hf.space/api/test/550?source=<provider-key>"
 
-# Test Source2 for Breaking Bad S1E1
-curl "https://missourimonster-vyla-api.hf.space/api/test/1396?season=1&episode=1&source=source2"
+# Test a provider for a TV episode
+curl "https://missourimonster-vyla-api.hf.space/api/test/1396?season=1&episode=1&source=<provider-key>"
 ```
+
+<Tip>
+  Available provider keys are returned by [`/api/health`](https://missourimonster-vyla-api.hf.space/api/health) under the `sources` field, or by fetching [`/api?sources_meta=1`](https://missourimonster-vyla-api.hf.space/api?sources_meta=1).
+</Tip>
 
 <Card title="Full API Reference →" href="/api-reference/movie" icon="book">
   See complete request/response docs for every endpoint.

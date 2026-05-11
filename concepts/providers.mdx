@@ -1,9 +1,9 @@
 ---
 title: Providers
-description: How each of the six streaming providers works, their reliability characteristics, and how to interpret their behavior.
+description: How streaming providers are selected, verified, and proxied — and how to interpret their behavior in responses.
 ---
 
-Vyla API aggregates six independent streaming providers. Each has different internal mechanisms, reliability profiles, and timeout characteristics. This page explains what's happening under the hood so you can build smarter applications.
+Vyla API aggregates multiple independent streaming providers. Each has different internal mechanisms, reliability profiles, and timeout characteristics. This page explains what's happening under the hood so you can build smarter applications.
 
 ---
 
@@ -11,151 +11,111 @@ Vyla API aggregates six independent streaming providers. Each has different inte
 
 On every `/api/movie` or `/api/tv` request:
 
-1. All six providers are queried **simultaneously** with per-source random jitter to stagger upstream requests
+1. All active (non-disabled) providers are queried **simultaneously** with per-source random jitter to stagger upstream requests
 2. Each provider has its own **timeout**, **retry count**, and **backoff delay**
 3. Every returned URL is **verified** by fetching it and checking for `#EXTM3U`
 4. Only URLs that pass verification appear in the response
 
 The total response time is determined by the slowest provider that returns a verified URL.
 
----
-
-## Provider Reference
-
-### Source1
-
-| Property | Value |
-|----------|-------|
-| Key | `source1` |
-| Proxy param | `s1` |
-| Timeout | 15s |
-| Retries | 3 |
-| Jitter | 400ms |
-
-Uses a two-stage AES decryption flow. First fetches an API key from `core.source1.com`, derives a symmetric key via SHA-256, then iterates up to 14 server slots decrypting each candidate link. Verified links are probed with `HEAD` before being returned. Generally reliable and fast.
+<Tip>
+  To see which providers are currently configured and their live status, call [`/api/health`](https://missourimonster-vyla-api.hf.space/api/health). Provider keys, labels, and timeouts are also available at [`/api?sources_meta=1`](https://missourimonster-vyla-api.hf.space/api?sources_meta=1).
+</Tip>
 
 ---
 
-### Source2
+## Provider Configuration
 
-| Property | Value |
-|----------|-------|
-| Key | `source2` |
-| Proxy param | `s2` |
-| Timeout | 20s |
-| Retries | 3 |
-| Jitter | 600ms |
+Each provider is defined with the following properties:
 
-Uses a custom Base64 alphabet for payload decryption, with six internal server backends tried sequentially. Each backend has a different response schema. Source2 typically has fast response times and good availability.
+| Field | Description |
+|-------|-------------|
+| `key` | Internal identifier used in API responses and the `source` field |
+| `label` | Human-readable name shown in the `label` field |
+| `proxyParam` | Short query parameter used to route proxied requests |
+| `timeout` | Maximum time (ms) to wait for a stream URL |
+| `jitter` | Max random delay (ms) before the request fires, to stagger upstream hits |
+| `retries` | Number of retry attempts on failure |
+| `skipProxy` | If `true`, stream URLs are returned as-is without proxy wrapping |
+| `disabled` | If `true`, the provider is excluded from all requests |
 
----
-
-### Source3
-
-| Property | Value |
-|----------|-------|
-| Key | `source3` |
-| Proxy param | `s3` |
-| Timeout | 25s |
-| Retries | 2 |
-| Jitter | 700ms |
-
-Uses a three-hop HTML scraping chain: load embed page → extract iframe URL → extract player URL → extract `file:` field with domain placeholders. The longest timeout of any provider at 25s. Availability is inconsistent — check `/api/health` before relying on it.
+Providers with `disabled: true` are completely skipped — they won't appear in health checks or fanout responses.
 
 ---
 
-### Source4
+## Response Time
 
-| Property | Value |
-|----------|-------|
-| Key | `source4` |
-| Proxy param | `s4` |
-| Timeout | 20s |
-| Retries | 3 |
-| Jitter | 800ms |
-
-Encrypts TMDB ID using AES-CBC with a fixed passphrase before fetching stream URL. Includes an additional `isBlocked()` check that fetches final URL and rejects it if response is HTML (a common blocking pattern). Hit-or-miss depending on day.
-
----
-
-### Source5
-
-| Property | Value |
-|----------|-------|
-| Key | `source5` |
-| Proxy param | `s5` |
-| Timeout | 20s |
-| Retries | 3 |
-| Jitter | 900ms |
-
-Fetches encrypted blobs from six internal Source5 server backends concurrently, then decrypts them via an external API at `decrypt.example.com`. Results are cached in memory to avoid redundant decrypt calls. Generally reliable with moderate response times.
-
----
-
-### Source6
-
-| Property | Value |
-|----------|-------|
-| Key | `source6` |
-| Proxy param | `s6` |
-| Timeout | 15s |
-| Retries | 2 |
-| Jitter | 500ms |
-
-The simplest provider. Constructs a direct M3U8 URL (`source6.com/v1/stream/master/...`) and validates it with a HEAD request. No encryption or scraping. Fast and deterministic when available.
-
----
-
-## Reliability by Provider
-
-Based on typical behavior — check `/api/health` for live status.
-
-| Provider | Speed | Availability | Notes |
-|----------|-------|--------------|-------|
-| Source1 | Fast | High | Strong first choice |
-| Source2 | Fast | High | Consistent |
-| Source6 | Very fast | Medium | Simplest, lowest overhead |
-| Source5 | Medium | Medium-High | External decrypt dependency |
-| Source4 | Medium | Medium | Blocked-URL check adds latency |
-| Source3 | Slow | Low | Last resort; high timeout |
-
----
-
-## Provider Timeouts and Your Response Time
-
-The total response time for `/api/movie` or `/api/tv` is gated by:
+The total response time for `/api/movie` or `/api/tv` depends on:
 
 - The **slowest provider** that returns a verifiable URL
-- Plus the **verification HEAD request** for each candidate
+- Plus the **verification fetch** for each candidate URL
 
-In the best case (all providers fast, first one verified), you'll see ~2–3s. In the worst case (only Source3 works), you're looking at 25s+ before the response arrives.
+Typical range is **3–8 seconds**. In the worst case (only a high-timeout provider works), you may see 20–25+ seconds.
 
-**Recommended:** always show a loading state and implement a timeout on your side as well.
+**Best practice:** always show a loading state and implement a client-side timeout. See the [Error Handling](/guides/error-handling) guide.
 
 ---
 
 ## Caching
 
-Results are cached in a Cloudflare Worker in-memory `Map` with a **5-minute TTL**, keyed by `source + tmdb_id + season + episode`. Cache hits skip the provider fetch entirely and return near-instantly.
+Results are cached in an in-memory `Map` with a **5-minute TTL**, keyed by `source + tmdb_id + season + episode`. Cache hits skip the provider fetch entirely and return near-instantly.
 
-<Warning>
-  The cache is per-Worker-isolate. Cloudflare Workers can run across many isolates globally, so cache hit rates in production are not 100%. Cached responses are best-effort, not guaranteed.
-</Warning>
+```
+CACHE_TTL = 5 minutes
+```
+
+The cache resets on server restart. Cache size is reported in the `/api/health` response under the `cache` field.
 
 ---
 
 ## The HLS Proxy
 
-All provider stream URLs are wrapped in the Cloudflare proxy:
+All provider stream URLs are wrapped in the server proxy (unless `skipProxy: true`):
 
 ```
-/api?url=<encoded_stream_url>&<proxy_param>=1
+/api?url=<encoded_stream_url>&<proxyParam>=1
 ```
 
-When your player fetches this path, the Worker:
+When your player fetches this path, the server:
 
-1. Fetches the upstream M3U8 with the correct `Referer` and `Origin` headers for that provider
+1. Fetches the upstream M3U8 with the correct `Referer`, `Origin`, and any provider-specific headers
 2. Rewrites all segment URLs and encryption key URIs in the playlist to route through the same proxy
 3. Returns the rewritten playlist with `Access-Control-Allow-Origin: *`
 
-This means **your player never talks to the provider directly** — all HLS traffic flows through Cloudflare, keeping CORS and rate-limiting issues fully contained.
+This means **your player never talks to the provider directly** — all HLS traffic flows through the proxy, keeping CORS and rate-limiting issues fully contained.
+
+---
+
+## Stream Verification
+
+Before a URL is returned in a response, it's verified by fetching the manifest and checking:
+
+```javascript
+text.trim().startsWith('#EXTM3U')
+```
+
+Sources that return HTTP errors, timeouts, or non-HLS content are silently dropped. Only URLs confirmed to be valid HLS playlists appear in `sources[]`.
+
+<Note>
+  The `/api/test` endpoint skips this verification step by default. Use `/api/movie` or `/api/tv` when you need confirmed-playable sources.
+</Note>
+
+---
+
+## Disabled Providers
+
+Providers marked `disabled: true` in config are completely excluded from:
+
+- `/api/movie` and `/api/tv` fanout
+- `/api/health` probes
+- `/api?sources_meta=1` listings
+
+If a provider you expect to see is missing from responses, check whether it's been disabled.
+
+---
+
+## Multi-URL Sources
+
+Some providers return multiple candidate stream URLs (via `allUrls`). For these, verification runs through each candidate in order and returns the first one that passes. If none pass, the source is dropped.
+
+For providers with `SKIP_VERIFY`, all candidate URLs are returned as separate labeled sources (e.g. `Provider Name 1`, `Provider Name 2`) without verification.

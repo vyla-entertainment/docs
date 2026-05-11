@@ -1,10 +1,10 @@
 ---
 title: Movie Subtitles
 api: "GET https://missourimonster-vyla-api.hf.space/api/subtitles/movie/{tmdb_id}"
-description: Fetch all available WebVTT subtitle tracks for a movie.
+description: Fetch all available subtitle tracks for a movie.
 ---
 
-Returns an array of subtitle tracks for a movie. Each track is a direct link to a `.vtt` file — no proxy needed. Subtitle tracks are also bundled automatically in `/api/movie` responses; use this endpoint when you need them independently.
+Returns an array of subtitle tracks for a movie. Each track is a direct link to a `.vtt` or `.srt` file — no proxy needed. Subtitle tracks are also bundled automatically in `/api/movie` responses; use this endpoint when you need them independently.
 
 ---
 
@@ -31,7 +31,7 @@ const subtitles = await fetch(
 ).then(r => r.json());
 
 subtitles.forEach(sub => {
-  console.log(`${sub.label}: ${sub.file}`);
+  console.log(`${sub.label} (${sub.type}): ${sub.file}`);
 });
 ```
 
@@ -39,6 +39,8 @@ subtitles.forEach(sub => {
 interface Subtitle {
   label: string;
   file: string;
+  type: string;
+  source: string;
 }
 
 const subtitles: Subtitle[] = await fetch(
@@ -54,7 +56,7 @@ subtitles = requests.get(
 ).json()
 
 for sub in subtitles:
-    print(f"{sub['label']}: {sub['file']}")
+    print(f"{sub['label']} ({sub['type']}): {sub['file']}")
 ```
 </CodeGroup>
 
@@ -72,7 +74,13 @@ Returns a JSON array. `404` if no subtitles are found for this title.
       Language name of the track, e.g. `English`, `Spanish`, `Arabic`, `French`, `Portuguese`.
     </ResponseField>
     <ResponseField name="file" type="string">
-      Direct URL to a WebVTT (`.vtt`) subtitle file. Accessible without any proxy or authentication.
+      Direct URL to the subtitle file. Accessible without any proxy or authentication.
+    </ResponseField>
+    <ResponseField name="type" type="string">
+      Format of the subtitle file — `vtt` or `srt`.
+    </ResponseField>
+    <ResponseField name="source" type="string">
+      Internal subtitle source identifier (e.g. `v1`, `v2`, `febbox`).
     </ResponseField>
   </Expandable>
 </ResponseField>
@@ -87,23 +95,21 @@ Returns a JSON array. `404` if no subtitles are found for this title.
     [
       {
         "label": "English",
-        "file": "https://cache.vdrk.site/v1/vtt/movie/550/English.vtt"
+        "file": "https://sub.vdrk.site/v1/movie/550/English.vtt",
+        "type": "vtt",
+        "source": "v1"
       },
       {
         "label": "Spanish",
-        "file": "https://cache.vdrk.site/v1/vtt/movie/550/Spanish.vtt"
+        "file": "https://sub.vdrk.site/v1/movie/550/Spanish.vtt",
+        "type": "vtt",
+        "source": "v1"
       },
       {
         "label": "French",
-        "file": "https://cache.vdrk.site/v1/vtt/movie/550/French.vtt"
-      },
-      {
-        "label": "Arabic",
-        "file": "https://cache.vdrk.site/v1/vtt/movie/550/Arabic.vtt"
-      },
-      {
-        "label": "Portuguese",
-        "file": "https://cache.vdrk.site/v1/vtt/movie/550/Portuguese.vtt"
+        "file": "https://sub.vdrk.site/v2/movie/550/French.vtt",
+        "type": "vtt",
+        "source": "v2"
       }
     ]
     ```
@@ -129,9 +135,7 @@ Returns a JSON array. `404` if no subtitles are found for this title.
 ### HTML `<track>` element
 
 ```html
-<video id="player" controls>
-  <!-- Subtitle tracks added dynamically -->
-</video>
+<video id="player" controls></video>
 
 <script>
   fetch('https://missourimonster-vyla-api.hf.space/api/subtitles/movie/550')
@@ -179,11 +183,7 @@ const subs = await fetch(
   'https://missourimonster-vyla-api.hf.space/api/subtitles/movie/550'
 ).then(r => r.json());
 
-const player = new Plyr('#player', {
-  captions: { active: true, update: true },
-});
-
-// Plyr reads <track> elements — add them before initialising
+// Add <track> elements before initialising Plyr
 subs.forEach(sub => {
   const track = Object.assign(document.createElement('track'), {
     kind:  'captions',
@@ -192,8 +192,12 @@ subs.forEach(sub => {
   });
   document.getElementById('player').appendChild(track);
 });
+
+const player = new Plyr('#player', {
+  captions: { active: true, update: true },
+});
 ```
 
 <Note>
-  Subtitle tracks are included automatically in `/api/movie` responses. Only use this endpoint when you need subtitles without fetching stream sources.
+  Subtitle tracks are included automatically in `/api/movie` responses. Only call this endpoint when you need subtitles without fetching stream sources.
 </Note>

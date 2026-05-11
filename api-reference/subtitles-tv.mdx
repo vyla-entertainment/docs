@@ -1,10 +1,10 @@
 ---
 title: TV Subtitles
 api: "GET https://missourimonster-vyla-api.hf.space/api/subtitles/tv/{tmdb_id}/{season}/{episode}"
-description: Fetch all available WebVTT subtitle tracks for a TV episode.
+description: Fetch all available subtitle tracks for a TV episode.
 ---
 
-Returns an array of subtitle tracks for a specific TV episode. Each track is a direct `.vtt` link — no proxy needed. Subtitle tracks are also bundled automatically in `/api/tv` responses; use this endpoint when you need them independently.
+Returns an array of subtitle tracks for a specific TV episode. Each track is a direct `.vtt` or `.srt` link — no proxy needed. Subtitle tracks are also bundled automatically in `/api/tv` responses; use this endpoint when you need them independently.
 
 ---
 
@@ -39,7 +39,7 @@ const subtitles = await fetch(
 ).then(r => r.json());
 
 subtitles.forEach(sub => {
-  console.log(`${sub.label}: ${sub.file}`);
+  console.log(`${sub.label} (${sub.type}): ${sub.file}`);
 });
 ```
 
@@ -47,6 +47,8 @@ subtitles.forEach(sub => {
 interface Subtitle {
   label: string;
   file: string;
+  type: string;
+  source: string;
 }
 
 const subtitles: Subtitle[] = await fetch(
@@ -66,7 +68,7 @@ subtitles = requests.get(
 ).json()
 
 for sub in subtitles:
-    print(f"{sub['label']}: {sub['file']}")
+    print(f"{sub['label']} ({sub['type']}): {sub['file']}")
 ```
 </CodeGroup>
 
@@ -84,7 +86,13 @@ Returns a JSON array. `404` if no subtitles are found for this episode.
       Language name of the track, e.g. `English`, `Spanish`, `Arabic`.
     </ResponseField>
     <ResponseField name="file" type="string">
-      Direct URL to a WebVTT (`.vtt`) subtitle file.
+      Direct URL to the subtitle file.
+    </ResponseField>
+    <ResponseField name="type" type="string">
+      Subtitle format — `vtt` or `srt`.
+    </ResponseField>
+    <ResponseField name="source" type="string">
+      Internal subtitle source identifier.
     </ResponseField>
   </Expandable>
 </ResponseField>
@@ -99,15 +107,15 @@ Returns a JSON array. `404` if no subtitles are found for this episode.
     [
       {
         "label": "English",
-        "file": "https://cache.vdrk.site/v1/vtt/tv/1396/1/1/English.vtt"
+        "file": "https://sub.vdrk.site/v1/tv/1396/1/1/English.vtt",
+        "type": "vtt",
+        "source": "v1"
       },
       {
         "label": "Spanish",
-        "file": "https://cache.vdrk.site/v1/vtt/tv/1396/1/1/Spanish.vtt"
-      },
-      {
-        "label": "French",
-        "file": "https://cache.vdrk.site/v1/vtt/tv/1396/1/1/French.vtt"
+        "file": "https://sub.vdrk.site/v1/tv/1396/1/1/Spanish.vtt",
+        "type": "vtt",
+        "source": "v1"
       }
     ]
     ```

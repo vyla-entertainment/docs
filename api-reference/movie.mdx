@@ -4,9 +4,9 @@ api: "GET https://missourimonster-vyla-api.hf.space/api/movie"
 description: Fetch all working HLS sources, subtitle tracks, and TMDB metadata for a movie.
 ---
 
-Queries all six providers in parallel, verifies each candidate URL live, and returns only the streams that are actually playable. Subtitles and TMDB metadata are fetched concurrently and bundled into the same response.
+Queries all configured providers in parallel, verifies each candidate URL live, and returns only the streams that are actually playable. Subtitles and TMDB metadata are fetched concurrently and bundled into the same response.
 
-Every `url` in the response is already routed through the Cloudflare HLS proxy with M3U8 segment paths rewritten — pass it directly to `hls.loadSource()`.
+Every `url` in the response is already routed through the HLS proxy with M3U8 segment paths rewritten — pass it directly to `hls.loadSource()` after prepending the base URL.
 
 ---
 
@@ -46,6 +46,8 @@ interface Source {
 interface Subtitle {
   label: string;
   file: string;
+  type: string;
+  source: string;
 }
 
 interface MovieResponse {
@@ -67,8 +69,9 @@ data = requests.get(
   params={'id': 550}
 ).json()
 
+BASE = 'https://missourimonster-vyla-api.hf.space'
 for source in data['sources']:
-    print(f"{source['label']}: https://missourimonster-vyla-api.hf.space{source['url']}")
+    print(f"{source['label']}: {BASE}{source['url']}")
 ```
 
 ```go Go
@@ -99,8 +102,9 @@ func main() {
   var data MovieResponse
   json.NewDecoder(res.Body).Decode(&data)
 
+  base := "https://missourimonster-vyla-api.hf.space"
   for _, s := range data.Sources {
-    fmt.Printf("%s: https://missourimonster-vyla-api.hf.space%s\n", s.Label, s.URL)
+    fmt.Printf("%s: %s%s\n", s.Label, base, s.URL)
   }
 }
 ```
@@ -111,19 +115,17 @@ func main() {
 ## Response
 
 <ResponseField name="sources" type="Source[]" required>
-  Array of verified, proxied HLS sources. Only streams that passed the live `#EXTM3U` verification check are included. Array may be empty if all providers fail.
+  Array of verified, proxied HLS sources. Only streams that passed the live `#EXTM3U` verification check are included.
 
   <Expandable title="Source object">
     <ResponseField name="source" type="string">
-      Internal provider key, e.g. `source1`, `source2`. Matches the keys in the [providers table](/introduction#providers).
+      Internal provider key. Matches the keys in `/api/health` and `/api/test`.
     </ResponseField>
     <ResponseField name="label" type="string">
-      Human-readable provider name, e.g. `Source1`, `Source2`.
+      Human-readable provider name.
     </ResponseField>
     <ResponseField name="url" type="string">
-      Proxied HLS stream URL. All M3U8 segment and encryption key URIs are rewritten to route through the same Cloudflare origin. Pass directly to `hls.loadSource()`.
-
-      **Important:** Prepend `https://missourimonster-vyla-api.hf.space` if your player requires an absolute URL.
+      Proxied HLS stream URL. All M3U8 segment and encryption key URIs are rewritten to route through the proxy. **Prepend `https://missourimonster-vyla-api.hf.space`** before passing to `hls.loadSource()`.
     </ResponseField>
   </Expandable>
 </ResponseField>
@@ -136,7 +138,13 @@ func main() {
       Language name, e.g. `English`, `Spanish`, `Arabic`, `French`.
     </ResponseField>
     <ResponseField name="file" type="string">
-      Direct URL to a WebVTT (`.vtt`) file. Use as `<track src="...">` or pass to your player's subtitle API.
+      Direct URL to a subtitle file (`.vtt` or `.srt`). Use as `<track src="...">` or pass to your player's subtitle API.
+    </ResponseField>
+    <ResponseField name="type" type="string">
+      Subtitle format — `vtt` or `srt`.
+    </ResponseField>
+    <ResponseField name="source" type="string">
+      Internal subtitle source identifier.
     </ResponseField>
   </Expandable>
 </ResponseField>
@@ -155,29 +163,28 @@ func main() {
     {
       "sources": [
         {
-          "source": "source1",
-          "label": "Source1",
-          "url": "/api?url=https%3A%2F%2Fplayer.source1.com%2F...&s1=1"
+          "source": "provider-a",
+          "label": "Provider A",
+          "url": "/api?url=https%3A%2F%2F...&pa=1"
         },
         {
-          "source": "source2",
-          "label": "Source2",
-          "url": "/api?url=https%3A%2F%2Fsource2.com%2F...&s2=1"
-        },
-        {
-          "source": "source5",
-          "label": "Source5",
-          "url": "/api?url=https%3A%2F%2Fplayer.source5.com%2F...&s5=1"
+          "source": "provider-b",
+          "label": "Provider B",
+          "url": "/api?url=https%3A%2F%2F...&pb=1"
         }
       ],
       "subtitles": [
         {
           "label": "English",
-          "file": "https://cache.vdrk.site/v1/vtt/movie/550/English.vtt"
+          "file": "https://sub.vdrk.site/v1/movie/550/English.vtt",
+          "type": "vtt",
+          "source": "v1"
         },
         {
           "label": "Spanish",
-          "file": "https://cache.vdrk.site/v1/vtt/movie/550/Spanish.vtt"
+          "file": "https://sub.vdrk.site/v1/movie/550/Spanish.vtt",
+          "type": "vtt",
+          "source": "v1"
         }
       ],
       "meta": {
@@ -215,16 +222,16 @@ func main() {
 
 <AccordionGroup>
   <Accordion title="Response time">
-    Typical response time is **3–8 seconds**. The request completes once all providers have responded (or timed out) and Source1 has a 15s timeout; Source3 can take up to 25s — these are the usual bottlenecks on slow responses.
+    Typical response time is **3–8 seconds**. The request waits for all providers to respond or time out — the slowest active provider determines the ceiling. Always show a loading state in your UI.
   </Accordion>
   <Accordion title="Result ordering">
-    Sources are returned in the order they passed verification, which correlates with provider speed. The first source is generally the fastest-responding provider.
+    Sources are returned in the order they passed verification, which generally correlates with provider speed. The first source is usually the fastest-responding one.
   </Accordion>
-  <Accordion title="Empty sources array vs 502">
+  <Accordion title="Empty sources vs 502">
     A `502` with `"no working sources found"` means all providers returned nothing. A `200` with an empty `sources` array should not occur — this is handled server-side.
   </Accordion>
   <Accordion title="Using the URL field">
-    The `url` field is a relative path beginning with `/api?url=...`. Prepend the base URL when constructing absolute URLs for your player:
+    The `url` field is a relative path starting with `/api?url=...`. Build an absolute URL like this:
 
     ```javascript
     const streamUrl = 'https://missourimonster-vyla-api.hf.space' + source.url;

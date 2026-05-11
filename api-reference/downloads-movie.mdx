@@ -1,18 +1,14 @@
 ---
 title: Movie Downloads
 api: "GET https://missourimonster-vyla-api.hf.space/api/downloads/movie/{tmdb_id}"
-description: Fetch direct download links for movies with quality labels and file sizes.
+description: Fetch direct download links for a movie with quality labels and file sizes.
 ---
 
-The movie downloads endpoint returns direct download links sourced from `source1.com`. Each link comes with a quality label, file size, and format — useful for building download buttons or offline-capable applications.
+Returns direct download links for a movie. Each link comes with a quality label, file size, and format — useful for building download buttons or offline-capable applications.
 
 ---
 
-## API Endpoint
-
-<api>GET https://missourimonster-vyla-api.hf.space/api/downloads/movie/{tmdb_id}</api>
-
-### Path Parameters
+## Path Parameters
 
 <ParamField path="tmdb_id" type="string" required>
   TMDB movie ID.
@@ -56,19 +52,19 @@ for dl in data['downloads']:
 {
   "downloads": [
     {
-      "url": "https://source1.com/download/fight-club-1080p.mp4",
+      "url": "https://...",
       "quality": "1080p",
       "size": "2.14 GB",
       "format": "MP4"
     },
     {
-      "url": "https://source1.com/download/fight-club-720p.mp4",
+      "url": "https://...",
       "quality": "720p",
       "size": "1.08 GB",
       "format": "MP4"
     },
     {
-      "url": "https://source1.com/download/fight-club-480p.mp4",
+      "url": "https://...",
       "quality": "480p",
       "size": "512.00 MB",
       "format": "MP4"
@@ -107,7 +103,6 @@ for dl in data['downloads']:
 | Status | Meaning |
 |--------|---------|
 | `200` | Downloads found and returned |
-| `404` | No downloads found for this title |
 | `500` | Server error |
 
 ---
@@ -127,6 +122,11 @@ async function addMovieDownloadButtons(tmdbId, containerEl) {
 
   const { downloads } = await res.json();
 
+  if (!downloads.length) {
+    containerEl.textContent = 'No downloads available';
+    return;
+  }
+
   downloads.forEach(dl => {
     const a = document.createElement('a');
     a.href    = dl.url;
@@ -139,5 +139,5 @@ async function addMovieDownloadButtons(tmdbId, containerEl) {
 ```
 
 <Warning>
-  Download links are sourced from a third-party provider and may expire or become unavailable. Always handle `404` responses gracefully.
+  Download links are sourced from a third-party provider and may expire or become unavailable. Always handle empty `downloads` arrays and errors gracefully.
 </Warning>

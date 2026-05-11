@@ -116,8 +116,7 @@
         {
             "group": "Guides",
             "pages": [
-                "guides/hlsjs",
-                "guides/react",
+                "guides/integrations",
                 "guides/error-handling"
             ]
         }

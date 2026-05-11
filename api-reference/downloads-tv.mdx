@@ -1,21 +1,17 @@
 ---
 title: TV Episode Downloads
 api: "GET https://missourimonster-vyla-api.hf.space/api/downloads/tv/{tmdb_id}/{season}/{episode}"
-description: Fetch direct download links for TV episodes with quality labels and file sizes.
+description: Fetch direct download links for a TV episode with quality labels and file sizes.
 ---
 
-The TV episode downloads endpoint returns direct download links sourced from `source1.com`. Each link comes with a quality label, file size, and format — useful for building download buttons or offline-capable applications.
+Returns direct download links for a specific TV episode. Each link comes with a quality label, file size, and format — useful for building download buttons or offline-capable applications.
 
 ---
 
-## API Endpoint
-
-<api>GET https://missourimonster-vyla-api.hf.space/api/downloads/tv/{tmdb_id}/{season}/{episode}</api>
-
-### Path Parameters
+## Path Parameters
 
 <ParamField path="tmdb_id" type="string" required>
-  TMDB series ID.
+  TMDB **series** ID.
 </ParamField>
 
 <ParamField path="season" type="number" required>
@@ -66,19 +62,19 @@ for dl in data['downloads']:
 {
   "downloads": [
     {
-      "url": "https://source1.com/download/breaking-bad-s01e01-1080p.mp4",
+      "url": "https://...",
       "quality": "1080p",
       "size": "1.32 GB",
       "format": "MP4"
     },
     {
-      "url": "https://source1.com/download/breaking-bad-s01e01-720p.mp4",
+      "url": "https://...",
       "quality": "720p",
       "size": "856.00 MB",
       "format": "MP4"
     },
     {
-      "url": "https://source1.com/download/breaking-bad-s01e01-480p.mp4",
+      "url": "https://...",
       "quality": "480p",
       "size": "412.00 MB",
       "format": "MP4"
@@ -117,7 +113,6 @@ for dl in data['downloads']:
 | Status | Meaning |
 |--------|---------|
 | `200` | Downloads found and returned |
-| `404` | No downloads found for this title |
 | `500` | Server error |
 
 ---
@@ -137,6 +132,11 @@ async function addTVDownloadButtons(tmdbId, season, episode, containerEl) {
 
   const { downloads } = await res.json();
 
+  if (!downloads.length) {
+    containerEl.textContent = 'No downloads available';
+    return;
+  }
+
   downloads.forEach(dl => {
     const a = document.createElement('a');
     a.href    = dl.url;
@@ -149,5 +149,5 @@ async function addTVDownloadButtons(tmdbId, season, episode, containerEl) {
 ```
 
 <Warning>
-  Download links are sourced from a third-party provider and may expire or become unavailable. Always handle `404` responses gracefully.
+  Download links are sourced from a third-party provider and may expire or become unavailable. Always handle empty `downloads` arrays and errors gracefully.
 </Warning>

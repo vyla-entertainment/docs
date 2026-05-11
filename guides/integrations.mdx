@@ -1,0 +1,511 @@
+---
+title: Player Integrations
+description: Complete guides for integrating Vyla API into HTML, React, Next.js, and more — with HLS.js, source switching, subtitles, and error fallbacks.
+---
+
+This guide covers everything from a minimal HTML player to a full-featured React component with source switching, quality selection, and subtitle support.
+
+---
+
+## Installation
+
+<CodeGroup>
+```bash npm
+npm install hls.js
+```
+
+```bash yarn
+yarn add hls.js
+```
+
+```html CDN
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest/dist/hls.min.js"></script>
+```
+</CodeGroup>
+
+---
+
+## Minimal HTML Player
+
+The simplest possible setup — one file, no bundler required:
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest/dist/hls.min.js"></script>
+</head>
+<body>
+  <video id="player" controls style="width: 100%; max-width: 900px;"></video>
+
+  <script>
+    const BASE = 'https://missourimonster-vyla-api.hf.space';
+
+    async function play(tmdbId) {
+      const data = await fetch(`${BASE}/api/movie?id=${tmdbId}`)
+        .then(r => r.json());
+
+      if (!data.sources?.length) {
+        alert('No sources available');
+        return;
+      }
+
+      const video = document.getElementById('player');
+
+      if (!Hls.isSupported()) {
+        // Safari: native HLS
+        video.src = BASE + data.sources[0].url;
+        return;
+      }
+
+      const hls = new Hls();
+      hls.loadSource(BASE + data.sources[0].url);
+      hls.attachMedia(video);
+      hls.on(Hls.Events.MANIFEST_PARSED, () => video.play());
+    }
+
+    play(550); // Fight Club
+  </script>
+</body>
+</html>
+```
+
+---
+
+## HTML Player with Source Switching + Subtitles
+
+A more complete HTML player with a source picker UI and subtitle tracks:
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest/dist/hls.min.js"></script>
+  <style>
+    body { font-family: sans-serif; background: #111; color: #fff; padding: 1rem; }
+    video { width: 100%; max-width: 900px; display: block; }
+    #sources { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem; }
+    button { padding: 0.4rem 0.8rem; background: #333; color: #fff; border: none;
+             border-radius: 4px; cursor: pointer; }
+    button.active { background: #fff; color: #111; }
+    #status { margin-top: 0.5rem; font-size: 0.85rem; color: #aaa; }
+  </style>
+</head>
+<body>
+  <video id="player" controls></video>
+  <div id="sources"></div>
+  <div id="status">Loading…</div>
+
+  <script>
+    const BASE = 'https://missourimonster-vyla-api.hf.space';
+    let hls;
+
+    async function loadMovie(tmdbId) {
+      const data = await fetch(`${BASE}/api/movie?id=${tmdbId}`).then(r => r.json());
+
+      if (!data.sources?.length) {
+        document.getElementById('status').textContent = 'No sources available.';
+        return;
+      }
+
+      // Build source buttons
+      const container = document.getElementById('sources');
+      data.sources.forEach((source, i) => {
+        const btn = document.createElement('button');
+        btn.textContent = source.label;
+        if (i === 0) btn.classList.add('active');
+        btn.onclick = () => {
+          container.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          switchSource(source.url);
+        };
+        container.appendChild(btn);
+      });
+
+      // Attach subtitle tracks
+      const video = document.getElementById('player');
+      data.subtitles.forEach(sub => {
+        const track = Object.assign(document.createElement('track'), {
+          kind: 'subtitles', label: sub.label, src: sub.file,
+        });
+        video.appendChild(track);
+      });
+
+      switchSource(data.sources[0].url);
+    }
+
+    function switchSource(url) {
+      hls?.destroy();
+      hls = new Hls();
+
+      const video = document.getElementById('player');
+      const status = document.getElementById('status');
+
+      hls.on(Hls.Events.MANIFEST_LOADING,  () => { status.textContent = 'Loading…'; });
+      hls.on(Hls.Events.MANIFEST_PARSED,   () => { status.textContent = 'Playing'; video.play(); });
+      hls.on(Hls.Events.ERROR, (_, err) => {
+        if (err.fatal) status.textContent = 'Source error — try another.';
+      });
+
+      hls.loadSource(BASE + url);
+      hls.attachMedia(video);
+    }
+
+    loadMovie(550);
+  </script>
+</body>
+</html>
+```
+
+---
+
+## Quality Level Selection
+
+HLS.js exposes quality levels from the manifest. Present them to the user:
+
+```javascript
+function setupQualitySelector(hls, selectEl) {
+  hls.on(Hls.Events.MANIFEST_PARSED, (_, data) => {
+    selectEl.innerHTML = '<option value="-1">Auto</option>';
+
+    data.levels.forEach((level, i) => {
+      const opt = document.createElement('option');
+      opt.value = i;
+      opt.textContent = `${level.height}p (${Math.round(level.bitrate / 1000)}kbps)`;
+      selectEl.appendChild(opt);
+    });
+
+    selectEl.onchange = () => {
+      hls.currentLevel = parseInt(selectEl.value);
+    };
+  });
+
+  hls.on(Hls.Events.LEVEL_SWITCHED, (_, data) => {
+    selectEl.value = hls.autoLevelEnabled ? '-1' : data.level;
+  });
+}
+```
+
+---
+
+## React Hook
+
+A reusable hook that handles fetching, loading state, and error handling:
+
+```typescript
+// hooks/useVyla.ts
+import { useState, useEffect } from 'react';
+
+const BASE = 'https://missourimonster-vyla-api.hf.space';
+
+interface Source   { source: string; label: string; url: string; }
+interface Subtitle { label: string; file: string; type: string; source: string; }
+
+interface VylaState {
+  sources:   Source[];
+  subtitles: Subtitle[];
+  meta:      Record<string, unknown> | null;
+  loading:   boolean;
+  error:     string | null;
+}
+
+interface VylaParams {
+  tmdbId:  number | null;
+  season?: number | null;
+  episode?: number | null;
+}
+
+export function useVyla({ tmdbId, season, episode }: VylaParams): VylaState {
+  const [state, setState] = useState<VylaState>({
+    sources: [], subtitles: [], meta: null, loading: false, error: null,
+  });
+
+  useEffect(() => {
+    if (!tmdbId) return;
+
+    const url = season && episode
+      ? `${BASE}/api/tv?id=${tmdbId}&season=${season}&episode=${episode}`
+      : `${BASE}/api/movie?id=${tmdbId}`;
+
+    setState(s => ({ ...s, loading: true, error: null }));
+
+    fetch(url)
+      .then(async r => {
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
+        setState({
+          sources:   data.sources   ?? [],
+          subtitles: data.subtitles ?? [],
+          meta:      data.meta      ?? null,
+          loading:   false,
+          error:     null,
+        });
+      })
+      .catch(err => {
+        setState(s => ({ ...s, loading: false, error: err.message }));
+      });
+  }, [tmdbId, season, episode]);
+
+  return state;
+}
+```
+
+---
+
+## React Player Component
+
+A full-featured player with source switching, quality selection, and subtitle tracks:
+
+```tsx
+// components/VylaPlayer.tsx
+'use client';
+import { useEffect, useRef, useState } from 'react';
+import Hls from 'hls.js';
+import { useVyla } from '@/hooks/useVyla';
+
+const BASE = 'https://missourimonster-vyla-api.hf.space';
+
+interface VylaPlayerProps {
+  tmdbId:   number;
+  season?:  number;
+  episode?: number;
+}
+
+export function VylaPlayer({ tmdbId, season, episode }: VylaPlayerProps) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const hlsRef   = useRef<Hls | null>(null);
+
+  const { sources, subtitles, loading, error } = useVyla({ tmdbId, season, episode });
+  const [active, setActive] = useState(0);
+  const [levels, setLevels] = useState<Hls.Level[]>([]);
+  const [level,  setLevel]  = useState(-1);
+
+  // Load active source into HLS.js
+  useEffect(() => {
+    if (!sources.length || !videoRef.current) return;
+
+    hlsRef.current?.destroy();
+
+    if (!Hls.isSupported()) {
+      videoRef.current.src = BASE + sources[active].url;
+      return;
+    }
+
+    const hls = new Hls();
+    hlsRef.current = hls;
+
+    hls.on(Hls.Events.MANIFEST_PARSED, (_, data) => {
+      setLevels(data.levels);
+      videoRef.current?.play().catch(() => {});
+    });
+
+    hls.on(Hls.Events.ERROR, (_, err) => {
+      if (err.fatal && active < sources.length - 1) setActive(i => i + 1);
+    });
+
+    hls.loadSource(BASE + sources[active].url);
+    hls.attachMedia(videoRef.current);
+
+    return () => hls.destroy();
+  }, [sources, active]);
+
+  // Sync quality level
+  useEffect(() => {
+    if (hlsRef.current) hlsRef.current.currentLevel = level;
+  }, [level]);
+
+  if (loading) return <div>Loading sources…</div>;
+  if (error)   return <div>Error: {error}</div>;
+
+  return (
+    <div>
+      <video ref={videoRef} controls style={{ width: '100%' }}>
+        {subtitles.map(sub => (
+          <track key={sub.label} kind="subtitles" label={sub.label} src={sub.file} />
+        ))}
+      </video>
+
+      {/* Source selector */}
+      {sources.length > 1 && (
+        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
+          {sources.map((src, i) => (
+            <button
+              key={src.source}
+              onClick={() => setActive(i)}
+              style={{ fontWeight: i === active ? 'bold' : 'normal' }}
+            >
+              {src.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Quality selector */}
+      {levels.length > 0 && (
+        <select value={level} onChange={e => setLevel(Number(e.target.value))}>
+          <option value={-1}>Auto</option>
+          {levels.map((l, i) => (
+            <option key={i} value={i}>{l.height}p</option>
+          ))}
+        </select>
+      )}
+    </div>
+  );
+}
+```
+
+---
+
+## Next.js App Router Page
+
+A complete movie watch page with server-side metadata and client-side playback:
+
+```typescript
+// app/movie/[id]/page.tsx
+import { Suspense } from 'react';
+import { VylaPlayer } from '@/components/VylaPlayer';
+
+async function getMovieMeta(tmdbId: string) {
+  const res = await fetch(
+    `https://api.themoviedb.org/3/movie/${tmdbId}?api_key=${process.env.TMDB_API_KEY}`,
+    { next: { revalidate: 3600 } }
+  );
+  return res.ok ? res.json() : null;
+}
+
+export default async function MoviePage({ params }: { params: { id: string } }) {
+  const meta = await getMovieMeta(params.id);
+
+  return (
+    <main style={{ maxWidth: 960, margin: '0 auto', padding: '1rem' }}>
+      {meta && (
+        <div style={{ marginBottom: '1rem' }}>
+          <h1>{meta.title}</h1>
+          <p style={{ color: '#aaa' }}>{meta.release_date} · {meta.runtime} min</p>
+        </div>
+      )}
+
+      <Suspense fallback={<div style={{ aspectRatio: '16/9', background: '#111' }} />}>
+        <VylaPlayer tmdbId={Number(params.id)} />
+      </Suspense>
+
+      {meta?.overview && (
+        <p style={{ marginTop: '1rem', color: '#ccc' }}>{meta.overview}</p>
+      )}
+    </main>
+  );
+}
+```
+
+---
+
+## Lazy Episode Loading (React)
+
+Don't fetch sources until the user clicks an episode — saves unnecessary API calls:
+
+```tsx
+'use client';
+import { useState } from 'react';
+import { useVyla } from '@/hooks/useVyla';
+
+interface Episode {
+  episode_number: number;
+  name: string;
+}
+
+export function EpisodeList({
+  seriesId,
+  season,
+  episodes,
+}: {
+  seriesId: number;
+  season: number;
+  episodes: Episode[];
+}) {
+  const [selectedEp, setSelectedEp] = useState<number | null>(null);
+  const { sources, subtitles, loading, error } = useVyla({
+    tmdbId: seriesId,
+    season,
+    episode: selectedEp,
+  });
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 3fr', gap: '1rem' }}>
+      <aside>
+        {episodes.map(ep => (
+          <button
+            key={ep.episode_number}
+            onClick={() => setSelectedEp(ep.episode_number)}
+            style={{ display: 'block', width: '100%', textAlign: 'left',
+                     padding: '0.5rem', fontWeight: selectedEp === ep.episode_number ? 'bold' : 'normal' }}
+          >
+            E{ep.episode_number} — {ep.name}
+          </button>
+        ))}
+      </aside>
+
+      <section>
+        {!selectedEp && <p>Select an episode to watch</p>}
+        {loading && <div style={{ aspectRatio: '16/9', background: '#222' }} />}
+        {error && <p style={{ color: 'red' }}>{error}</p>}
+        {sources.length > 0 && (
+          <video controls style={{ width: '100%' }}>
+            {subtitles.map(s => (
+              <track key={s.label} kind="subtitles" label={s.label} src={s.file} />
+            ))}
+          </video>
+        )}
+      </section>
+    </div>
+  );
+}
+```
+
+---
+
+## Safari / iOS
+
+Safari has native HLS support and doesn't need HLS.js. Detect and handle both:
+
+```javascript
+function loadHls(videoEl, relativeUrl) {
+  const url = 'https://missourimonster-vyla-api.hf.space' + relativeUrl;
+
+  if (Hls.isSupported()) {
+    const hls = new Hls();
+    hls.loadSource(url);
+    hls.attachMedia(videoEl);
+    return hls;
+  }
+
+  if (videoEl.canPlayType('application/vnd.apple.mpegurl')) {
+    // Safari native HLS
+    videoEl.src = url;
+    return null;
+  }
+
+  throw new Error('HLS not supported in this browser');
+}
+```
+
+---
+
+## SSR Considerations
+
+<Warning>
+  HLS.js must run **client-side only**. Never import it in server components or run it during SSR — it accesses `window` and `document`.
+
+  In Next.js App Router, always add `'use client'` to components that use HLS.js. Use dynamic `import('hls.js')` inside `useEffect` to keep it out of your SSR bundle entirely.
+</Warning>
+
+```tsx
+// ✅ Correct — dynamic import in useEffect
+useEffect(() => {
+  import('hls.js').then(({ default: Hls }) => {
+    // Safe to use Hls here
+  });
+}, []);
+
+// ❌ Wrong — top-level import in a component that may SSR
+import Hls from 'hls.js'; // will crash on server
+```

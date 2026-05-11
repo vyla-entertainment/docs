@@ -4,7 +4,7 @@ api: "GET https://missourimonster-vyla-api.hf.space/api/tv"
 description: Fetch all working HLS sources, subtitle tracks, and TMDB metadata for a TV episode.
 ---
 
-Identical to the movie endpoint in behavior, but takes a series ID plus season and episode numbers. All six providers are queried in parallel, each candidate URL is verified live, and only streams that return a valid HLS playlist are included in the response.
+Identical to the movie endpoint in behavior, but takes a series ID plus season and episode numbers. All configured providers are queried in parallel, each candidate URL is verified live, and only streams that return a valid HLS playlist are included in the response.
 
 ---
 
@@ -54,6 +54,8 @@ interface Source {
 interface Subtitle {
   label: string;
   file: string;
+  type: string;
+  source: string;
 }
 
 interface TvResponse {
@@ -75,8 +77,9 @@ data = requests.get(
   params={'id': 1396, 'season': 1, 'episode': 1}
 ).json()
 
+BASE = 'https://missourimonster-vyla-api.hf.space'
 for source in data['sources']:
-    print(f"{source['label']}: https://missourimonster-vyla-api.hf.space{source['url']}")
+    print(f"{source['label']}: {BASE}{source['url']}")
 ```
 
 ```swift Swift
@@ -86,8 +89,9 @@ let (data, _) = try await URLSession.shared.data(from: url)
 let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
 let sources = json["sources"] as! [[String: String]]
 
+let base = "https://missourimonster-vyla-api.hf.space"
 for source in sources {
-    print("\(source["label"]!): https://missourimonster-vyla-api.hf.space\(source["url"]!)")
+    print("\(source["label"]!): \(base)\(source["url"]!)")
 }
 ```
 </CodeGroup>
@@ -101,7 +105,7 @@ for source in sources {
 
   <Expandable title="Source object">
     <ResponseField name="source" type="string">
-      Internal provider key, e.g. `source1`, `source2`.
+      Internal provider key.
     </ResponseField>
     <ResponseField name="label" type="string">
       Human-readable provider name.
@@ -120,7 +124,13 @@ for source in sources {
       Language name, e.g. `English`, `Spanish`.
     </ResponseField>
     <ResponseField name="file" type="string">
-      Direct URL to a `.vtt` WebVTT file.
+      Direct URL to a `.vtt` or `.srt` subtitle file.
+    </ResponseField>
+    <ResponseField name="type" type="string">
+      Subtitle format — `vtt` or `srt`.
+    </ResponseField>
+    <ResponseField name="source" type="string">
+      Internal subtitle source identifier.
     </ResponseField>
   </Expandable>
 </ResponseField>
@@ -139,30 +149,28 @@ for source in sources {
     {
       "sources": [
         {
-          "source": "source1",
-          "label": "Source1",
-          "url": "/api?url=https%3A%2F%2Fplayer.source1.com%2F...&s1=1"
+          "source": "provider-a",
+          "label": "Provider A",
+          "url": "/api?url=https%3A%2F%2F...&pa=1"
         },
         {
-          "source": "source2",
-          "label": "Source2",
-          "url": "/api?url=https%3A%2F%2Fsource2.com%2F...&s2=1"
+          "source": "provider-b",
+          "label": "Provider B",
+          "url": "/api?url=https%3A%2F%2F...&pb=1"
         }
       ],
       "subtitles": [
         {
           "label": "English",
-          "file": "https://cache.vdrk.site/v1/vtt/tv/1396/1/1/English.vtt"
-        },
-        {
-          "label": "Spanish",
-          "file": "https://cache.vdrk.site/v1/vtt/tv/1396/1/1/Spanish.vtt"
+          "file": "https://sub.vdrk.site/v1/tv/1396/1/1/English.vtt",
+          "type": "vtt",
+          "source": "v1"
         }
       ],
       "meta": {
         "id": 62085,
         "name": "Pilot",
-        "overview": "Walter White, a chemistry teacher...",
+        "overview": "...",
         "air_date": "2008-01-20",
         "episode_number": 1,
         "season_number": 1
@@ -197,17 +205,17 @@ for source in sources {
 
 <AccordionGroup>
   <Accordion title="Series ID vs Episode ID">
-    The `id` parameter is the **series** TMDB ID — the same ID regardless of which season or episode you request. Season and episode numbers are passed separately as `season` and `episode`.
+    The `id` parameter is the **series** TMDB ID — the same ID regardless of which season or episode you request. Season and episode numbers are passed separately.
 
     | Wrong | Right |
     |-------|-------|
     | Episode-level TMDB ID | Series-level TMDB ID |
-    | `id=62085` (Pilot episode) | `id=1396` (Breaking Bad) |
+    | `id=62085` (Pilot episode) | `id=1396` (Breaking Bad series) |
   </Accordion>
   <Accordion title="Specials and bonus content">
     Season `0` typically contains specials on TMDB. Support varies by provider — some handle it, others don't. Expect fewer working sources for specials.
   </Accordion>
   <Accordion title="Meta field is episode-level">
-    Unlike the movie endpoint where `meta` describes the film, `meta` here contains the **episode** data from TMDB (title, overview, air date, episode number). The series-level metadata is not included.
+    Unlike the movie endpoint where `meta` describes the film, here `meta` contains **episode** data from TMDB — title, overview, air date, and episode number. Series-level metadata is not included.
   </Accordion>
 </AccordionGroup>
