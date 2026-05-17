@@ -65,19 +65,22 @@ for dl in data['downloads']:
       "url": "https://...",
       "quality": "1080p",
       "size": "1.32 GB",
-      "format": "MP4"
+      "format": "MP4",
+      "server": "1"
     },
     {
       "url": "https://...",
       "quality": "720p",
       "size": "856.00 MB",
-      "format": "MP4"
+      "format": "MP4",
+      "server": "2"
     },
     {
       "url": "https://...",
       "quality": "480p",
       "size": "412.00 MB",
-      "format": "MP4"
+      "format": "MP4",
+      "server": "3"
     }
   ]
 }
@@ -102,6 +105,9 @@ for dl in data['downloads']:
     </ResponseField>
     <ResponseField name="format" type="string">
       Container format, e.g. `MP4`, `MKV`. Uppercase.
+    </ResponseField>
+    <ResponseField name="server" type="string">
+      Server name, e.g. `1`, `2`.
     </ResponseField>
   </Expandable>
 </ResponseField>
@@ -142,7 +148,7 @@ async function addTVDownloadButtons(tmdbId, season, episode, containerEl) {
     a.href    = dl.url;
     a.target  = '_blank';
     a.rel     = 'noopener noreferrer';
-    a.textContent = `Download ${dl.quality}${dl.size ? ` — ${dl.size}` : ''}`;
+    a.textContent = `Download ${dl.quality}${dl.size ? ` — ${dl.size}` : ''}${dl.server ? ` — Server ${dl.server}` : ''}`;
     containerEl.appendChild(a);
   });
 }

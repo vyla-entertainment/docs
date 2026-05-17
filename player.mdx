@@ -1,0 +1,75 @@
+---
+title: Player
+description: Test any movie or TV show stream live in your browser using the Vyla Player embed.
+---
+
+<Tip>
+  This player is powered by the Vyla API and pulls streams from the same API.
+</Tip>
+
+<iframe
+  src="https://vyla-player.pages.dev/?id=550"
+  allow="fullscreen"
+  style={{ width: '100%', aspectRatio: '16/9', border: 'none', borderRadius: '12px' }}
+/>
+
+<Tip>
+  The player defaults to TMDB ID `550` (Fight Club). To load a different title, change the `id` in the URL above. For TV, use `?type=tv&id=<id>&season=1&episode=1`.
+</Tip>
+
+---
+
+## URL Format
+
+**Movie**
+
+```
+https://vyla-player.pages.dev/?id=<tmdb_id>
+```
+
+**TV Show**
+
+```
+https://vyla-player.pages.dev/?type=tv&id=<tmdb_id>&season=<season>&episode=<episode>
+```
+
+---
+
+## Parameters
+
+| Parameter | Description |
+|-----------|-------------|
+| `type` | `movie` (default) or `tv` |
+| `id` | TMDB ID of the title |
+| `season` | Season number — TV only |
+| `episode` | Episode number — TV only |
+
+---
+
+## Embed It Yourself
+
+Copy this into any HTML page to embed the player:
+
+### Movies
+
+```html
+<iframe
+  src="https://vyla-player.pages.dev/?id=550"
+  allowfullscreen
+  style="width:100%;aspect-ratio:16/9;border:none;border-radius:12px"
+></iframe>
+```
+
+### TV Shows
+
+```html
+<iframe
+  src="https://vyla-player.pages.dev/?type=tv&id=1399&season=1&episode=1"
+  allowfullscreen
+  style="width:100%;aspect-ratio:16/9;border:none;border-radius:12px"
+></iframe>
+```
+
+<Note>
+  The player pulls streams from the same providers as the API. If a title shows no sources, check [`/api/health`](https://missourimonster-vyla.hf.space/api/health) to confirm providers are live.
+</Note>

@@ -21,25 +21,29 @@ Vyla API is a **Node.js** streaming API hosted on Hugging Face Spaces. It fans o
 Pass a TMDB ID. Get back working streams, multi-language subtitles, and TMDB metadata — in a single request.
 
 <CardGroup cols={2}>
-  <Card title="Multi-Provider Fanout" icon="bolt">
+  <Card title="Multi-Provider Fanout">
     All configured providers are queried in parallel with per-source jitter, retries, and timeouts. Dead sources are silently dropped from the response.
   </Card>
-  <Card title="Live Stream Verification" icon="circle-check">
+  <Card title="Live Stream Verification">
     Every candidate URL is fetched and checked for a valid `#EXTM3U` header before it appears in the response. No dead links.
   </Card>
-  <Card title="Built-in HLS Proxy" icon="shield">
+  <Card title="Built-in HLS Proxy">
     Stream URLs are wrapped in a server-hosted proxy that rewrites M3U8 segment and key paths. CORS issues in the browser are gone by design.
   </Card>
-  <Card title="Subtitles Included" icon="subtitles">
+  <Card title="Subtitles Included">
     VTT subtitle tracks in multiple languages are automatically bundled into every movie and TV response, or available standalone.
   </Card>
-  <Card title="Download Links" icon="download">
+  <Card title="Download Links">
     Direct download links for movies and TV episodes with quality labels and file sizes.
   </Card>
-  <Card title="Health Monitoring" icon="heart-pulse">
+  <Card title="Health Monitoring">
     A dedicated health endpoint probes every provider in real time and reports per-source latency and status.
   </Card>
 </CardGroup>
+
+<Card title="Try the Player" href="/player">
+  Test a live stream directly in your browser — no setup needed. Enter any TMDB ID and hit play.
+</Card>
 
 ---
 
