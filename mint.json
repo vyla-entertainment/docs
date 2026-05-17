@@ -32,7 +32,7 @@
     ],
     "topbarCtaButton": {
         "name": "Live API",
-        "url": "https://missourimonster-vyla-api.hf.space",
+        "url": "https://missourimonster-vyla.hf.space",
         "type": "link"
     },
     "tabs": [
@@ -63,12 +63,12 @@
         {
             "name": "Live API",
             "icon": "bolt",
-            "url": "https://missourimonster-vyla-api.hf.space"
+            "url": "https://missourimonster-vyla.hf.space"
         },
         {
             "name": "Health Status",
             "icon": "heart-pulse",
-            "url": "https://missourimonster-vyla-api.hf.space/api/health"
+            "url": "https://missourimonster-vyla.hf.space/api/health"
         }
     ],
     "navigation": [
@@ -134,11 +134,11 @@
         "socials": {
             "github": "https://github.com/EndOverdosing/Vyla-Player-API",
             "discord": "https://discord.gg/5eqRhKeywG",
-            "website": "https://missourimonster-vyla-api.hf.space"
+            "website": "https://missourimonster-vyla.hf.space"
         }
     },
     "api": {
-        "baseUrl": "https://missourimonster-vyla-api.hf.space",
+        "baseUrl": "https://missourimonster-vyla.hf.space",
         "playground": {
             "mode": "show"
         }

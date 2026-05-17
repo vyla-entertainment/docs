@@ -1,6 +1,6 @@
 ---
 title: Movie Sources
-api: "GET https://missourimonster-vyla-api.hf.space/api/movie"
+api: "GET https://missourimonster-vyla.hf.space/api/movie"
 description: Fetch all working HLS sources, subtitle tracks, and TMDB metadata for a movie.
 ---
 
@@ -24,11 +24,11 @@ Every `url` in the response is already routed through the HLS proxy with M3U8 se
 
 <CodeGroup>
 ```bash cURL
-curl "https://missourimonster-vyla-api.hf.space/api/movie?id=550"
+curl "https://missourimonster-vyla.hf.space/api/movie?id=550"
 ```
 
 ```javascript JavaScript
-const res  = await fetch('https://missourimonster-vyla-api.hf.space/api/movie?id=550');
+const res  = await fetch('https://missourimonster-vyla.hf.space/api/movie?id=550');
 const data = await res.json();
 
 const sources   = data.sources;   // verified HLS sources
@@ -57,7 +57,7 @@ interface MovieResponse {
 }
 
 const data: MovieResponse = await fetch(
-  'https://missourimonster-vyla-api.hf.space/api/movie?id=550'
+  'https://missourimonster-vyla.hf.space/api/movie?id=550'
 ).then(r => r.json());
 ```
 
@@ -65,11 +65,11 @@ const data: MovieResponse = await fetch(
 import requests
 
 data = requests.get(
-  'https://missourimonster-vyla-api.hf.space/api/movie',
+  'https://missourimonster-vyla.hf.space/api/movie',
   params={'id': 550}
 ).json()
 
-BASE = 'https://missourimonster-vyla-api.hf.space'
+BASE = 'https://missourimonster-vyla.hf.space'
 for source in data['sources']:
     print(f"{source['label']}: {BASE}{source['url']}")
 ```
@@ -96,13 +96,13 @@ type MovieResponse struct {
 }
 
 func main() {
-  res, _ := http.Get("https://missourimonster-vyla-api.hf.space/api/movie?id=550")
+  res, _ := http.Get("https://missourimonster-vyla.hf.space/api/movie?id=550")
   defer res.Body.Close()
 
   var data MovieResponse
   json.NewDecoder(res.Body).Decode(&data)
 
-  base := "https://missourimonster-vyla-api.hf.space"
+  base := "https://missourimonster-vyla.hf.space"
   for _, s := range data.Sources {
     fmt.Printf("%s: %s%s\n", s.Label, base, s.URL)
   }
@@ -125,7 +125,7 @@ func main() {
       Human-readable provider name.
     </ResponseField>
     <ResponseField name="url" type="string">
-      Proxied HLS stream URL. All M3U8 segment and encryption key URIs are rewritten to route through the proxy. **Prepend `https://missourimonster-vyla-api.hf.space`** before passing to `hls.loadSource()`.
+      Proxied HLS stream URL. All M3U8 segment and encryption key URIs are rewritten to route through the proxy. **Prepend `https://missourimonster-vyla.hf.space`** before passing to `hls.loadSource()`.
     </ResponseField>
   </Expandable>
 </ResponseField>
@@ -234,7 +234,7 @@ func main() {
     The `url` field is a relative path starting with `/api?url=...`. Build an absolute URL like this:
 
     ```javascript
-    const streamUrl = 'https://missourimonster-vyla-api.hf.space' + source.url;
+    const streamUrl = 'https://missourimonster-vyla.hf.space' + source.url;
     hls.loadSource(streamUrl);
     ```
   </Accordion>

@@ -22,11 +22,11 @@ Call `/api/movie` or `/api/tv`. The API fans out to all configured providers in 
 
 <CodeGroup>
 ```bash Movie
-curl https://missourimonster-vyla-api.hf.space/api/movie?id=550
+curl https://missourimonster-vyla.hf.space/api/movie?id=550
 ```
 
 ```bash TV Episode
-curl "https://missourimonster-vyla-api.hf.space/api/tv?id=1396&season=1&episode=1"
+curl "https://missourimonster-vyla.hf.space/api/tv?id=1396&season=1&episode=1"
 ```
 </CodeGroup>
 
@@ -37,12 +37,12 @@ curl "https://missourimonster-vyla-api.hf.space/api/tv?id=1396&season=1&episode=
     {
       "source": "provider-a",
       "label": "Provider A",
-"url": "https://missourimonster-vyla-api.hf.space/api?url=https%3A%2F%2F...&pa=1"
+"url": "https://missourimonster-vyla.hf.space/api?url=https%3A%2F%2F...&pa=1"
     },
     {
       "source": "provider-b",
       "label": "Provider B",
-      "url": "https://missourimonster-vyla-api.hf.space/api?url=https%3A%2F%2F...&pb=1"
+      "url": "https://missourimonster-vyla.hf.space/api?url=https%3A%2F%2F...&pb=1"
     }
   ],
   "subtitles": [
@@ -87,7 +87,7 @@ The `url` field on each source is a fully-qualified URL — the base is already 
 
       <script>
         async function loadMovie(tmdbId) {
-          const res  = await fetch(`https://missourimonster-vyla-api.hf.space/api/movie?id=${tmdbId}`);
+          const res  = await fetch(`https://missourimonster-vyla.hf.space/api/movie?id=${tmdbId}`);
           const data = await res.json();
           if (!data.sources?.length) return console.error('No sources');
 
@@ -132,7 +132,7 @@ The `url` field on each source is a fully-qualified URL — the base is already 
         let hls: Hls;
 
         async function load() {
-          const res  = await fetch(`https://missourimonster-vyla-api.hf.space/api/movie?id=${tmdbId}`);
+          const res  = await fetch(`https://missourimonster-vyla.hf.space/api/movie?id=${tmdbId}`);
           const data = await res.json();
           if (!data.sources?.length || !videoRef.current) return;
 
@@ -169,7 +169,7 @@ The `url` field on each source is a fully-qualified URL — the base is already 
         import('hls.js').then(({ default: Hls }) => {
           if (!Hls.isSupported() || !videoRef.current) return;
 
-          fetch(`https://missourimonster-vyla-api.hf.space/api/movie?id=${tmdbId}`)
+          fetch(`https://missourimonster-vyla.hf.space/api/movie?id=${tmdbId}`)
             .then(r => r.json())
             .then(data => {
               if (!data.sources?.length) return;
@@ -188,7 +188,7 @@ The `url` field on each source is a fully-qualified URL — the base is already 
     ```python
     import requests
 
-    BASE = "https://missourimonster-vyla-api.hf.space"
+    BASE = "https://missourimonster-vyla.hf.space"
 
     def get_sources(tmdb_id: int, season: int = None, episode: int = None):
         if season and episode:
@@ -228,8 +228,8 @@ async function loadWithFallback(
   episode?: number
 ) {
   const endpoint = season && episode
-    ? `https://missourimonster-vyla-api.hf.space/api/tv?id=${tmdbId}&season=${season}&episode=${episode}`
-    : `https://missourimonster-vyla-api.hf.space/api/movie?id=${tmdbId}`;
+    ? `https://missourimonster-vyla.hf.space/api/tv?id=${tmdbId}&season=${season}&episode=${episode}`
+    : `https://missourimonster-vyla.hf.space/api/movie?id=${tmdbId}`;
 
   const data = await fetch(endpoint).then(r => r.json());
   if (!data.sources?.length) throw new Error('No sources available');
@@ -273,12 +273,12 @@ Subtitles are included automatically in movie and TV responses. You can also fet
 ```javascript
 // Already included in /api/movie and /api/tv responses
 const { sources, subtitles } = await fetch(
-  'https://missourimonster-vyla-api.hf.space/api/movie?id=550'
+  'https://missourimonster-vyla.hf.space/api/movie?id=550'
 ).then(r => r.json());
 
 // Or fetch standalone
 const subtitles = await fetch(
-  'https://missourimonster-vyla-api.hf.space/api/subtitles/movie/550'
+  'https://missourimonster-vyla.hf.space/api/subtitles/movie/550'
 ).then(r => r.json());
 
 // Apply to a video element
@@ -299,7 +299,7 @@ subtitles.forEach(sub => {
 Before building, verify which providers are currently live:
 
 ```bash
-curl https://missourimonster-vyla-api.hf.space/api/health
+curl https://missourimonster-vyla.hf.space/api/health
 ```
 
 ```json
@@ -327,14 +327,14 @@ Use `/api/test` to isolate a specific provider without running the full fanout:
 
 ```bash
 # Test a provider for a movie
-curl "https://missourimonster-vyla-api.hf.space/api/test/550?source=<provider-key>"
+curl "https://missourimonster-vyla.hf.space/api/test/550?source=<provider-key>"
 
 # Test a provider for a TV episode
-curl "https://missourimonster-vyla-api.hf.space/api/test/1396?season=1&episode=1&source=<provider-key>"
+curl "https://missourimonster-vyla.hf.space/api/test/1396?season=1&episode=1&source=<provider-key>"
 ```
 
 <Tip>
-  Available provider keys are returned by [`/api/health`](https://missourimonster-vyla-api.hf.space/api/health) under the `sources` field, or by fetching [`/api/sources`](https://missourimonster-vyla-api.hf.space/api/sources).
+  Available provider keys are returned by [`/api/health`](https://missourimonster-vyla.hf.space/api/health) under the `sources` field, or by fetching [`/api/sources`](https://missourimonster-vyla.hf.space/api/sources).
 </Tip>
 
 <Card title="Full API Reference →" href="/api-reference/movie" icon="book">

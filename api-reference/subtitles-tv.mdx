@@ -1,6 +1,6 @@
 ---
 title: TV Subtitles
-api: "GET https://missourimonster-vyla-api.hf.space/api/subtitles/tv/{tmdb_id}/{season}/{episode}"
+api: "GET https://missourimonster-vyla.hf.space/api/subtitles/tv/{tmdb_id}/{season}/{episode}"
 description: Fetch all available subtitle tracks for a TV episode.
 ---
 
@@ -30,12 +30,12 @@ Returns an array of subtitle tracks for a specific TV episode. Each track is a d
 
 <CodeGroup>
 ```bash cURL
-curl https://missourimonster-vyla-api.hf.space/api/subtitles/tv/1396/1/1
+curl https://missourimonster-vyla.hf.space/api/subtitles/tv/1396/1/1
 ```
 
 ```javascript JavaScript
 const subtitles = await fetch(
-  'https://missourimonster-vyla-api.hf.space/api/subtitles/tv/1396/1/1'
+  'https://missourimonster-vyla.hf.space/api/subtitles/tv/1396/1/1'
 ).then(r => r.json());
 
 subtitles.forEach(sub => {
@@ -52,7 +52,7 @@ interface Subtitle {
 }
 
 const subtitles: Subtitle[] = await fetch(
-  `https://missourimonster-vyla-api.hf.space/api/subtitles/tv/${seriesId}/${season}/${episode}`
+  `https://missourimonster-vyla.hf.space/api/subtitles/tv/${seriesId}/${season}/${episode}`
 ).then(r => r.json());
 ```
 
@@ -64,7 +64,7 @@ season    = 1
 episode   = 1
 
 subtitles = requests.get(
-  f'https://missourimonster-vyla-api.hf.space/api/subtitles/tv/{series_id}/{season}/{episode}'
+  f'https://missourimonster-vyla.hf.space/api/subtitles/tv/{series_id}/{season}/{episode}'
 ).json()
 
 for sub in subtitles:
@@ -137,7 +137,7 @@ Returns a JSON array. `404` if no subtitles are found for this episode.
 ## Building an Episode Selector with Subtitles
 
 ```typescript
-const BASE = 'https://missourimonster-vyla-api.hf.space';
+const BASE = 'https://missourimonster-vyla.hf.space';
 
 async function loadEpisode(
   seriesId: number,

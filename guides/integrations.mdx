@@ -40,7 +40,7 @@ The simplest possible setup — one file, no bundler required:
 
   <script>
     async function play(tmdbId) {
-      const data = await fetch(`https://missourimonster-vyla-api.hf.space/api/movie?id=${tmdbId}`)
+      const data = await fetch(`https://missourimonster-vyla.hf.space/api/movie?id=${tmdbId}`)
         .then(r => r.json());
 
       if (!data.sources?.length) {
@@ -97,7 +97,7 @@ A more complete HTML player with a source picker UI and subtitle tracks:
     let hls;
 
     async function loadMovie(tmdbId) {
-      const data = await fetch(`https://missourimonster-vyla-api.hf.space/api/movie?id=${tmdbId}`).then(r => r.json());
+      const data = await fetch(`https://missourimonster-vyla.hf.space/api/movie?id=${tmdbId}`).then(r => r.json());
 
       if (!data.sources?.length) {
         document.getElementById('status').textContent = 'No sources available.';
@@ -218,8 +218,8 @@ export function useVyla({ tmdbId, season, episode }: VylaParams): VylaState {
     if (!tmdbId) return;
 
     const url = season && episode
-      ? `https://missourimonster-vyla-api.hf.space/api/tv?id=${tmdbId}&season=${season}&episode=${episode}`
-      : `https://missourimonster-vyla-api.hf.space/api/movie?id=${tmdbId}`;
+      ? `https://missourimonster-vyla.hf.space/api/tv?id=${tmdbId}&season=${season}&episode=${episode}`
+      : `https://missourimonster-vyla.hf.space/api/movie?id=${tmdbId}`;
 
     setState(s => ({ ...s, loading: true, error: null }));
 

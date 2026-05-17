@@ -1,6 +1,6 @@
 ---
 title: Test a Source
-api: "GET https://missourimonster-vyla-api.hf.space/api/test/{id}"
+api: "GET https://missourimonster-vyla.hf.space/api/test/{id}"
 description: Debug a single provider in isolation — get the raw URL, proxy URL, elapsed time, and error details.
 ---
 
@@ -25,7 +25,7 @@ Tests one specific provider for a given TMDB ID without running the full paralle
 <ParamField query="source" type="string" required>
   Provider key to test. Must exactly match one of the configured source keys.
 
-  Available keys are listed in the `sources` field of [`/api/health`](https://missourimonster-vyla-api.hf.space/api/health) or [`/api/sources`](https://missourimonster-vyla-api.hf.space/api/sources).
+  Available keys are listed in the `sources` field of [`/api/health`](https://missourimonster-vyla.hf.space/api/health) or [`/api/sources`](https://missourimonster-vyla.hf.space/api/sources).
 </ParamField>
 
 <ParamField query="season" type="number">
@@ -42,16 +42,16 @@ Tests one specific provider for a given TMDB ID without running the full paralle
 
 <CodeGroup>
 ```bash Movie
-curl "https://missourimonster-vyla-api.hf.space/api/test/550?source=<provider-key>"
+curl "https://missourimonster-vyla.hf.space/api/test/550?source=<provider-key>"
 ```
 
 ```bash TV Episode
-curl "https://missourimonster-vyla-api.hf.space/api/test/1396?season=1&episode=1&source=<provider-key>"
+curl "https://missourimonster-vyla.hf.space/api/test/1396?season=1&episode=1&source=<provider-key>"
 ```
 
 ```javascript JavaScript
 const res = await fetch(
-  'https://missourimonster-vyla-api.hf.space/api/test/550?source=<provider-key>'
+  'https://missourimonster-vyla.hf.space/api/test/550?source=<provider-key>'
 );
 const data = await res.json();
 
@@ -76,7 +76,7 @@ interface TestResponse {
 }
 
 const data: TestResponse = await fetch(
-  'https://missourimonster-vyla-api.hf.space/api/test/550?source=<provider-key>'
+  'https://missourimonster-vyla.hf.space/api/test/550?source=<provider-key>'
 ).then(r => r.json());
 ```
 
@@ -84,7 +84,7 @@ const data: TestResponse = await fetch(
 import requests
 
 res = requests.get(
-  'https://missourimonster-vyla-api.hf.space/api/test/550',
+  'https://missourimonster-vyla.hf.space/api/test/550',
   params={'source': '<provider-key>'}
 ).json()
 
@@ -200,7 +200,7 @@ if res['error']:
 To test all providers in one go and see which are working for a given title:
 
 ```javascript
-const BASE = 'https://missourimonster-vyla-api.hf.space';
+const BASE = 'https://missourimonster-vyla.hf.space';
 
 async function testAll(tmdbId, season, episode) {
   // First, get the current list of provider keys
@@ -230,5 +230,5 @@ testAll(550);
 ```
 
 <Tip>
-  For a quick overview without per-provider isolation, use [`/api/health`](https://missourimonster-vyla-api.hf.space/api/health) — it probes all providers simultaneously and is optimised for monitoring.
+  For a quick overview without per-provider isolation, use [`/api/health`](https://missourimonster-vyla.hf.space/api/health) — it probes all providers simultaneously and is optimised for monitoring.
 </Tip>

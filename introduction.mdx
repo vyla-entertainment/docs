@@ -46,7 +46,7 @@ Pass a TMDB ID. Get back working streams, multi-language subtitles, and TMDB met
 ## Base URL
 
 ```
-https://missourimonster-vyla-api.hf.space
+https://missourimonster-vyla.hf.space
 ```
 
 All endpoints return `Access-Control-Allow-Origin: *`. No authentication required.
@@ -89,7 +89,7 @@ All endpoints return `Access-Control-Allow-Origin: *`. No authentication require
 | `/api/test/<id>` | `GET` | Debug a single provider in isolation |
 
 <Tip>
-  Check which providers are currently live: [`/api/health`](https://missourimonster-vyla-api.hf.space/api/health)
+  Check which providers are currently live: [`/api/health`](https://missourimonster-vyla.hf.space/api/health)
 </Tip>
 
 ---
@@ -119,7 +119,7 @@ Returned inside `sources[]` on movie and TV responses.
 <ResponseField name="url" type="string">
   Proxied, CORS-safe HLS stream URL. Pass directly to `hls.loadSource()`. All M3U8 segment and key URIs are pre-rewritten to flow through the proxy.
 
-  **Important:** This is a relative path. Prepend `https://missourimonster-vyla-api.hf.space` to get an absolute URL.
+  **Important:** This is a relative path. Prepend `https://missourimonster-vyla.hf.space` to get an absolute URL.
 </ResponseField>
 
 ---

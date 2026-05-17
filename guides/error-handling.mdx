@@ -29,7 +29,7 @@ All errors return JSON with a single `error` field:
 The most common failure — all providers failed to return a playable stream.
 
 ```typescript
-const res  = await fetch('https://missourimonster-vyla-api.hf.space/api/movie?id=550');
+const res  = await fetch('https://missourimonster-vyla.hf.space/api/movie?id=550');
 const data = await res.json();
 
 if (res.status === 502 || !data.sources?.length) {
@@ -54,7 +54,7 @@ Providers can fail mid-stream after the manifest loads. Build a fallback loop th
 ```typescript
 import Hls from 'hls.js';
 
-const BASE = 'https://missourimonster-vyla-api.hf.space';
+const BASE = 'https://missourimonster-vyla.hf.space';
 
 interface Source {
   source: string;
@@ -132,7 +132,7 @@ async function fetchWithTimeout(
 // Usage
 try {
   const res  = await fetchWithTimeout(
-    'https://missourimonster-vyla-api.hf.space/api/movie?id=550',
+    'https://missourimonster-vyla.hf.space/api/movie?id=550',
     15000
   );
   const data = await res.json();
@@ -151,7 +151,7 @@ Subtitles are not guaranteed for every title. Always handle the empty array case
 
 ```typescript
 const data = await fetch(
-  'https://missourimonster-vyla-api.hf.space/api/movie?id=550'
+  'https://missourimonster-vyla.hf.space/api/movie?id=550'
 ).then(r => r.json());
 
 if (data.subtitles.length === 0) {
@@ -195,7 +195,7 @@ If you're building a dashboard or monitoring tool, check provider health before 
 ```typescript
 async function checkAndLoad(tmdbId: number) {
   const health = await fetch(
-    'https://missourimonster-vyla-api.hf.space/api/health'
+    'https://missourimonster-vyla.hf.space/api/health'
   ).then(r => r.json());
 
   if (health.status === 'degraded') {
@@ -206,7 +206,7 @@ async function checkAndLoad(tmdbId: number) {
   }
 
   // Proceed — degraded just means fewer available sources
-  return fetch(`https://missourimonster-vyla-api.hf.space/api/movie?id=${tmdbId}`)
+  return fetch(`https://missourimonster-vyla.hf.space/api/movie?id=${tmdbId}`)
     .then(r => r.json());
 }
 ```
@@ -219,7 +219,7 @@ async function checkAndLoad(tmdbId: number) {
 import { useState, useCallback } from 'react';
 import Hls from 'hls.js';
 
-const BASE = 'https://missourimonster-vyla-api.hf.space';
+const BASE = 'https://missourimonster-vyla.hf.space';
 
 type PlayerState =
   | { status: 'idle' }

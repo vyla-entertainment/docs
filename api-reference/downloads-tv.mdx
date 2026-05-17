@@ -1,6 +1,6 @@
 ---
 title: TV Episode Downloads
-api: "GET https://missourimonster-vyla-api.hf.space/api/downloads/tv/{tmdb_id}/{season}/{episode}"
+api: "GET https://missourimonster-vyla.hf.space/api/downloads/tv/{tmdb_id}/{season}/{episode}"
 description: Fetch direct download links for a TV episode with quality labels and file sizes.
 ---
 
@@ -28,12 +28,12 @@ Returns direct download links for a specific TV episode. Each link comes with a 
 
 <CodeGroup>
 ```bash cURL
-curl https://missourimonster-vyla-api.hf.space/api/downloads/tv/1396/1/1
+curl https://missourimonster-vyla.hf.space/api/downloads/tv/1396/1/1
 ```
 
 ```javascript JavaScript
 const res  = await fetch(
-  'https://missourimonster-vyla-api.hf.space/api/downloads/tv/1396/1/1'
+  'https://missourimonster-vyla.hf.space/api/downloads/tv/1396/1/1'
 );
 const data = await res.json();
 
@@ -46,7 +46,7 @@ data.downloads.forEach(dl => {
 import requests
 
 data = requests.get(
-  'https://missourimonster-vyla-api.hf.space/api/downloads/tv/1396/1/1'
+  'https://missourimonster-vyla.hf.space/api/downloads/tv/1396/1/1'
 ).json()
 
 for dl in data['downloads']:
@@ -122,7 +122,7 @@ for dl in data['downloads']:
 ```javascript
 async function addTVDownloadButtons(tmdbId, season, episode, containerEl) {
   const res = await fetch(
-    `https://missourimonster-vyla-api.hf.space/api/downloads/tv/${tmdbId}/${season}/${episode}`
+    `https://missourimonster-vyla.hf.space/api/downloads/tv/${tmdbId}/${season}/${episode}`
   );
 
   if (!res.ok) {
