@@ -47,6 +47,10 @@
         {
             "name": "Guides",
             "url": "/guides"
+        },
+        {
+            "name": "Misc",
+            "url": "/misc"
         }
     ],
     "anchors": [
@@ -119,6 +123,12 @@
             "pages": [
                 "guides/integrations",
                 "guides/error-handling"
+            ]
+        },
+        {
+            "group": "Misc",
+            "pages": [
+                "misc/credit"
             ]
         }
     ],
