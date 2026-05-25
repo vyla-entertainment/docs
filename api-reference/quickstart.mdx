@@ -16,63 +16,37 @@ You'll need a TMDB ID for the content you want to stream. Every movie and TV sho
 
 ---
 
-## Step 1 — Fetch Sources
+## Step 1 — Open the SSE Stream
 
-Call `/api/movie` or `/api/tv`. The API fans out to all configured providers in parallel, verifies every URL live, and returns only the working ones.
+The `/movie` and `/tv` endpoints are **Server-Sent Events** — not JSON. Open a streaming connection and handle three event types as they arrive: `meta`, `source`, and `done`.
 
 <CodeGroup>
 ```bash Movie
-curl https://missourimonster-vyla.hf.space/api/movie?id=550
+curl -N "https://missourimonster-plsdontusethisinurprojectusetheotherone.hf.space/movie?id=550"
 ```
 
 ```bash TV Episode
-curl "https://missourimonster-vyla.hf.space/api/tv?id=1396&season=1&episode=1"
+curl -N "https://missourimonster-plsdontusethisinurprojectusetheotherone.hf.space/tv?id=1396&season=1&episode=1"
 ```
 </CodeGroup>
 
-<Accordion title="Example response">
-```json
-{
-  "sources": [
-    {
-      "source": "provider-a",
-      "label": "Provider A",
-"url": "https://missourimonster-vyla.hf.space/api?url=https%3A%2F%2F...&pa=1"
-    },
-    {
-      "source": "provider-b",
-      "label": "Provider B",
-      "url": "https://missourimonster-vyla.hf.space/api?url=https%3A%2F%2F...&pb=1"
-    }
-  ],
-  "subtitles": [
-    {
-      "label": "English",
-      "file": "https://sub.vdrk.site/v1/movie/550/English.vtt",
-      "type": "vtt",
-      "source": "v1"
-    },
-    {
-      "label": "Spanish",
-      "file": "https://sub.vdrk.site/v1/movie/550/Spanish.vtt",
-      "type": "vtt",
-      "source": "v1"
-    }
-  ],
-  "meta": {
-    "id": 550,
-    "title": "Fight Club",
-    "release_date": "1999-10-15"
-  }
-}
+<Accordion title="Example SSE stream output">
+```
+data: {"type":"meta","meta":{"id":550,"title":"Fight Club","release_date":"1999-10-15","runtime":139},"subtitles":[{"label":"English","file":"https://cache.vdrk.site/v1/vtt/movie/550/English.vtt","type":"vtt","source":"v1"},{"label":"Spanish","file":"https://cache.vdrk.site/v1/vtt/movie/550/Spanish.vtt","type":"vtt","source":"v1"}]}
+
+data: {"type":"source","source":{"source":"provider-a","label":"Provider A","url":"https://missourimonster-plsdontusethisinurprojectusetheotherone.hf.space/api?url=...&pa=1"}}
+
+data: {"type":"source","source":{"source":"provider-b","label":"Provider B","url":"https://missourimonster-plsdontusethisinurprojectusetheotherone.hf.space/api?url=...&pb=1"}}
+
+data: {"type":"done","total":2}
 ```
 </Accordion>
 
 ---
 
-## Step 2 — Play with HLS.js
+## Step 2 — Handle Events and Play
 
-The `url` field on each source is a fully-qualified URL — the base is already baked in. Pass it directly to your player with no modification needed.
+Parse each `data:` line as JSON and act on the `type` field. Start playback on the first `source` event — don't wait for `done`.
 
 <Tabs>
   <Tab title="Vanilla JS">
@@ -84,34 +58,76 @@ The `url` field on each source is a fully-qualified URL — the base is already 
     </head>
     <body>
       <video id="player" controls style="width:100%"></video>
+      <div id="status">Connecting…</div>
 
       <script>
-        async function loadMovie(tmdbId) {
-          const res  = await fetch(`https://missourimonster-vyla.hf.space/api/movie?id=${tmdbId}`);
-          const data = await res.json();
-          if (!data.sources?.length) return console.error('No sources');
+        const BASE   = 'https://missourimonster-plsdontusethisinurprojectusetheotherone.hf.space';
+        const video  = document.getElementById('player');
+        const status = document.getElementById('status');
 
-          const video = document.getElementById('player');
+        let hls;
+        let sources = [];
+        let started = false;
 
-          if (!Hls.isSupported()) {
-            video.src = data.sources[0].url;
-            return;
-          }
-
-          const hls = new Hls();
-          hls.loadSource(data.sources[0].url);
+        function playSource(url) {
+          hls?.destroy();
+          if (!Hls.isSupported()) { video.src = url; return; }
+          hls = new Hls();
+          hls.loadSource(url);
           hls.attachMedia(video);
-
           hls.on(Hls.Events.MANIFEST_PARSED, () => {
-            data.subtitles.forEach(sub => {
-              const track  = document.createElement('track');
-              track.kind   = 'subtitles';
-              track.label  = sub.label;
-              track.src    = sub.file;
-              video.appendChild(track);
-            });
+            status.textContent = 'Playing';
             video.play();
           });
+          hls.on(Hls.Events.ERROR, (_, err) => {
+            if (err.fatal) {
+              const next = sources.find(s => s.url !== url);
+              if (next) { status.textContent = `Trying ${next.label}…`; playSource(next.url); }
+              else status.textContent = 'All sources failed.';
+            }
+          });
+        }
+
+        async function loadMovie(tmdbId) {
+          const res     = await fetch(`${BASE}/movie?id=${tmdbId}`);
+          const reader  = res.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer    = '';
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop();
+
+            for (const line of lines) {
+              if (!line.startsWith('data: ')) continue;
+              const event = JSON.parse(line.slice(6));
+
+              if (event.type === 'meta') {
+                status.textContent = `Loading ${event.meta?.title ?? ''}…`;
+                event.subtitles?.forEach((sub, i) => {
+                  const track    = document.createElement('track');
+                  track.kind     = 'subtitles';
+                  track.label    = sub.label;
+                  track.src      = sub.file;
+                  track.default  = i === 0;
+                  video.appendChild(track);
+                });
+              }
+
+              if (event.type === 'source') {
+                sources.push(event.source);
+                if (!started) { started = true; playSource(event.source.url); }
+              }
+
+              if (event.type === 'done' && !started) {
+                status.textContent = 'No sources available.';
+              }
+            }
+          }
         }
 
         loadMovie(550);
@@ -122,38 +138,79 @@ The `url` field on each source is a fully-qualified URL — the base is already 
   </Tab>
   <Tab title="React">
     ```tsx
-    import { useEffect, useRef } from 'react';
+    import { useEffect, useRef, useState } from 'react';
     import Hls from 'hls.js';
 
+    const BASE = 'https://missourimonster-plsdontusethisinurprojectusetheotherone.hf.space';
+
     export function Player({ tmdbId }: { tmdbId: number }) {
-      const videoRef = useRef<HTMLVideoElement>(null);
+      const videoRef  = useRef<HTMLVideoElement>(null);
+      const hlsRef    = useRef<Hls | null>(null);
+      const sourcesRef = useRef<string[]>([]);
+      const [status, setStatus] = useState('Connecting…');
+
+      function playUrl(url: string) {
+        if (!videoRef.current) return;
+        hlsRef.current?.destroy();
+        if (!Hls.isSupported()) { videoRef.current.src = url; return; }
+
+        const hls = new Hls();
+        hlsRef.current = hls;
+        hls.loadSource(url);
+        hls.attachMedia(videoRef.current);
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          setStatus('Playing');
+          videoRef.current?.play();
+        });
+        hls.on(Hls.Events.ERROR, (_, err) => {
+          if (err.fatal) {
+            const next = sourcesRef.current.find(u => u !== url);
+            if (next) { setStatus('Trying next source…'); playUrl(next); }
+            else setStatus('All sources failed.');
+          }
+        });
+      }
 
       useEffect(() => {
-        let hls: Hls;
+        let started = false;
 
-        async function load() {
-          const res  = await fetch(`https://missourimonster-vyla.hf.space/api/movie?id=${tmdbId}`);
-          const data = await res.json();
-          if (!data.sources?.length || !videoRef.current) return;
+        (async () => {
+          const res     = await fetch(`${BASE}/movie?id=${tmdbId}`);
+          const reader  = res.body!.getReader();
+          const decoder = new TextDecoder();
+          let buffer    = '';
 
-          if (!Hls.isSupported()) {
-            videoRef.current.src = data.sources[0].url;
-            return;
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop()!;
+
+            for (const line of lines) {
+              if (!line.startsWith('data: ')) continue;
+              const event = JSON.parse(line.slice(6));
+
+              if (event.type === 'source') {
+                sourcesRef.current.push(event.source.url);
+                if (!started) { started = true; playUrl(event.source.url); }
+              }
+
+              if (event.type === 'done' && !started) setStatus('No sources available.');
+            }
           }
+        })();
 
-          hls = new Hls();
-          hls.loadSource(data.sources[0].url);
-          hls.attachMedia(videoRef.current);
-          hls.on(Hls.Events.MANIFEST_PARSED, () => {
-            videoRef.current?.play();
-          });
-        }
-
-        load();
-        return () => hls?.destroy();
+        return () => hlsRef.current?.destroy();
       }, [tmdbId]);
 
-      return <video ref={videoRef} controls style={{ width: '100%' }} />;
+      return (
+        <>
+          <video ref={videoRef} controls style={{ width: '100%' }} />
+          <p>{status}</p>
+        </>
+      );
     }
     ```
   </Tab>
@@ -162,21 +219,45 @@ The `url` field on each source is a fully-qualified URL — the base is already 
     'use client';
     import { useEffect, useRef } from 'react';
 
+    const BASE = 'https://missourimonster-plsdontusethisinurprojectusetheotherone.hf.space';
+
     export default function Player({ tmdbId }: { tmdbId: number }) {
       const videoRef = useRef<HTMLVideoElement>(null);
 
       useEffect(() => {
+        let started = false;
+
         import('hls.js').then(({ default: Hls }) => {
           if (!Hls.isSupported() || !videoRef.current) return;
+          const hls = new Hls();
 
-          fetch(`https://missourimonster-vyla.hf.space/api/movie?id=${tmdbId}`)
-            .then(r => r.json())
-            .then(data => {
-              if (!data.sources?.length) return;
-              const hls = new Hls();
-              hls.loadSource(data.sources[0].url);
-              hls.attachMedia(videoRef.current!);
-            });
+          (async () => {
+            const res     = await fetch(`${BASE}/movie?id=${tmdbId}`);
+            const reader  = res.body!.getReader();
+            const decoder = new TextDecoder();
+            let buffer    = '';
+
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+
+              buffer += decoder.decode(value, { stream: true });
+              const lines = buffer.split('\n');
+              buffer = lines.pop()!;
+
+              for (const line of lines) {
+                if (!line.startsWith('data: ')) continue;
+                const event = JSON.parse(line.slice(6));
+                if (event.type === 'source' && !started) {
+                  started = true;
+                  hls.loadSource(event.source.url);
+                  hls.attachMedia(videoRef.current!);
+                }
+              }
+            }
+          })();
+
+          return () => hls.destroy();
         });
       }, [tmdbId]);
 
@@ -186,81 +267,103 @@ The `url` field on each source is a fully-qualified URL — the base is already 
   </Tab>
   <Tab title="Python">
     ```python
-    import requests
+    import requests, json
 
-    BASE = "https://missourimonster-vyla.hf.space"
+    BASE = 'https://missourimonster-plsdontusethisinurprojectusetheotherone.hf.space'
 
-    def get_sources(tmdb_id: int, season: int = None, episode: int = None):
-        if season and episode:
-            url = f"{BASE}/api/tv"
-            params = {"id": tmdb_id, "season": season, "episode": episode}
-        else:
-            url = f"{BASE}/api/movie"
-            params = {"id": tmdb_id}
+    def stream_movie(tmdb_id: int):
+        sources   = []
+        subtitles = []
 
-        res = requests.get(url, params=params)
-        res.raise_for_status()
-        data = res.json()
+        with requests.get(f'{BASE}/movie', params={'id': tmdb_id}, stream=True) as res:
+            for line in res.iter_lines():
+                if not line or not line.startswith(b'data: '):
+                    continue
+                event = json.loads(line[6:])
 
-        return {
-            "sources": data.get("sources", []),
-            "subtitles": data.get("subtitles", []),
-        }
+                if event['type'] == 'meta':
+                    subtitles = event.get('subtitles', [])
+                    print('Title:', event['meta'].get('title'))
 
-    result = get_sources(550)
-    for source in result["sources"]:
-        print(f"{source['label']}: {source['url']}")
+                elif event['type'] == 'source':
+                    sources.append(event['source'])
+                    print(f"  + {event['source']['label']}: {event['source']['url']}")
+
+                elif event['type'] == 'done':
+                    print(f"Done. {event['total']} sources.")
+                    break
+
+        return sources, subtitles
+
+    sources, subtitles = stream_movie(550)
     ```
   </Tab>
 </Tabs>
 
 ---
 
-## Step 3 — Handle Fallbacks
+## Step 3 — Build a Fallback Queue
 
-Providers can go down at any time. Build a fallback loop so your player automatically tries the next source on failure.
+Sources stream in order of speed. Load the first one immediately and queue the rest — if one dies mid-stream, try the next.
 
 ```typescript
-async function loadWithFallback(
+const BASE = 'https://missourimonster-plsdontusethisinurprojectusetheotherone.hf.space';
+
+async function streamWithFallback(
   videoEl: HTMLVideoElement,
   tmdbId: number,
   season?: number,
   episode?: number
 ) {
   const endpoint = season && episode
-    ? `https://missourimonster-vyla.hf.space/api/tv?id=${tmdbId}&season=${season}&episode=${episode}`
-    : `https://missourimonster-vyla.hf.space/api/movie?id=${tmdbId}`;
+    ? `${BASE}/tv?id=${tmdbId}&season=${season}&episode=${episode}`
+    : `${BASE}/movie?id=${tmdbId}`;
 
-  const data = await fetch(endpoint).then(r => r.json());
-  if (!data.sources?.length) throw new Error('No sources available');
-
-  const urls: string[] = data.sources.map((s: any) => s.url);
-  let index = 0;
+  const queue: string[] = [];
+  let started = false;
   let hls: any;
 
   function tryNext() {
-    if (index >= urls.length) {
-      console.error('All sources exhausted');
-      return;
-    }
-
+    if (!queue.length) return;
     hls?.destroy();
     hls = new Hls();
 
-    hls.on(Hls.Events.ERROR, (_: any, err: any) => {
-      if (err.fatal) {
-        console.warn(`Source ${index} failed, trying next`);
-        index++;
-        tryNext();
-      }
-    });
-
-    hls.loadSource(urls[index]);
+    const url = queue.shift()!;
+    hls.loadSource(url);
     hls.attachMedia(videoEl);
     hls.on(Hls.Events.MANIFEST_PARSED, () => videoEl.play());
+    hls.on(Hls.Events.ERROR, (_: any, err: any) => {
+      if (err.fatal) tryNext();
+    });
   }
 
-  tryNext();
+  const res     = await fetch(endpoint);
+  const reader  = res.body!.getReader();
+  const decoder = new TextDecoder();
+  let buffer    = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop()!;
+
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      const event = JSON.parse(line.slice(6));
+
+      if (event.type === 'source') {
+        queue.push(event.source.url);
+        if (!started) { started = true; tryNext(); }
+      }
+
+      if (event.type === 'done' && !started) {
+        throw new Error('No sources available');
+      }
+    }
+  }
 }
 ```
 
@@ -268,28 +371,25 @@ async function loadWithFallback(
 
 ## Step 4 — Add Subtitles
 
-Subtitles are included automatically in movie and TV responses. You can also fetch them standalone if needed.
+Subtitles arrive in the `meta` event, before any source. Attach them to your video element immediately.
 
 ```javascript
-// Already included in /api/movie and /api/tv responses
-const { sources, subtitles } = await fetch(
-  'https://missourimonster-vyla.hf.space/api/movie?id=550'
-).then(r => r.json());
-
-// Or fetch standalone
-const subtitles = await fetch(
-  'https://missourimonster-vyla.hf.space/api/subtitles/movie/550'
-).then(r => r.json());
-
-// Apply to a video element
-subtitles.forEach(sub => {
-  const track = Object.assign(document.createElement('track'), {
-    kind:  'subtitles',
-    label: sub.label,
-    src:   sub.file,
+// In your meta event handler:
+if (event.type === 'meta') {
+  event.subtitles.forEach((sub, i) => {
+    const track   = document.createElement('track');
+    track.kind    = 'subtitles';
+    track.label   = sub.label;
+    track.src     = sub.file;
+    track.default = i === 0;
+    videoEl.appendChild(track);
   });
-  videoEl.appendChild(track);
-});
+}
+
+// Or fetch subtitles standalone (no streaming needed):
+const subtitles = await fetch(
+  'https://missourimonster-plsdontusethisinurprojectusetheotherone.hf.space/subtitles?type=movie&id=550'
+).then(r => r.json());
 ```
 
 ---
@@ -299,7 +399,7 @@ subtitles.forEach(sub => {
 Before building, verify which providers are currently live:
 
 ```bash
-curl https://missourimonster-vyla.hf.space/api/health
+curl https://missourimonster-plsdontusethisinurprojectusetheotherone.hf.space/health
 ```
 
 ```json
@@ -317,26 +417,22 @@ curl https://missourimonster-vyla.hf.space/api/health
 }
 ```
 
-`status: "degraded"` means at least one provider is down — the rest still work and your fallback logic handles it automatically.
+`status: "degraded"` means at least one provider is down — the rest still work and your fallback queue handles it automatically.
 
 ---
 
 ## Debug a Single Provider
 
-Use `/api/test` to isolate a specific provider without running the full fanout:
+Use `/test` to isolate a specific provider without running the full fanout:
 
 ```bash
-# Test a provider for a movie
-curl "https://missourimonster-vyla.hf.space/api/test/550?source=<provider-key>"
-
-# Test a provider for a TV episode
-curl "https://missourimonster-vyla.hf.space/api/test/1396?season=1&episode=1&source=<provider-key>"
+curl "https://missourimonster-plsdontusethisinurprojectusetheotherone.hf.space/test?id=550&source=<provider-key>"
 ```
 
 <Tip>
-  Available provider keys are returned by [`/api/health`](https://missourimonster-vyla.hf.space/api/health) under the `sources` field, or by fetching [`/api/sources`](https://missourimonster-vyla.hf.space/api/sources).
+  Available provider keys are listed in the `/health` response under the `sources` field.
 </Tip>
 
 <Card title="Full API Reference →" href="/api-reference/movie">
-  See complete request/response docs for every endpoint.
+  See complete SSE event docs for every endpoint.
 </Card>

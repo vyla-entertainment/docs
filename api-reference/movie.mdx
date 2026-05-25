@@ -1,12 +1,14 @@
 ---
 title: Movie Sources
-api: "GET https://missourimonster-vyla.hf.space/api/movie"
-description: Fetch all working HLS sources, subtitle tracks, and TMDB metadata for a movie.
+api: "GET https://missourimonster-plsdontusethisinurprojectusetheotherone.hf.space/movie"
+description: Stream verified HLS sources, subtitle tracks, and TMDB metadata for a movie via Server-Sent Events.
 ---
 
-Queries all configured providers in parallel, verifies each candidate URL live, and returns only the streams that are actually playable. Subtitles and TMDB metadata are fetched concurrently and bundled into the same response.
+Opens a Server-Sent Events connection and queries all configured providers in parallel. Results stream in as each provider resolves — you don't wait for all providers to finish before playback can begin.
 
-Every `url` in the response is already routed through the HLS proxy with M3U8 segment paths rewritten — pass it directly to `hls.loadSource()` after prepending the base URL.
+The `meta` event fires first with TMDB metadata and subtitles. Each working source arrives as its own `source` event. A final `done` event closes the stream.
+
+Every `url` in a `source` event is fully qualified and already routed through the HLS proxy with M3U8 segment paths rewritten — pass it directly to `hls.loadSource()`.
 
 ---
 
@@ -24,19 +26,65 @@ Every `url` in the response is already routed through the HLS proxy with M3U8 se
 
 <CodeGroup>
 ```bash cURL
-curl "https://missourimonster-vyla.hf.space/api/movie?id=550"
+curl -N "https://missourimonster-plsdontusethisinurprojectusetheotherone.hf.space/movie?id=550"
 ```
 
-```javascript JavaScript
-const res  = await fetch('https://missourimonster-vyla.hf.space/api/movie?id=550');
-const data = await res.json();
+```javascript JavaScript (EventSource)
+const BASE = 'https://missourimonster-plsdontusethisinurprojectusetheotherone.hf.space';
 
-const sources   = data.sources;   // verified HLS sources
-const subtitles = data.subtitles; // VTT subtitle tracks
-const meta      = data.meta;      // TMDB metadata
+const es = new EventSource(`${BASE}/movie?id=550`);
+
+es.onmessage = (e) => {
+  const event = JSON.parse(e.data);
+
+  if (event.type === 'meta') {
+    console.log('Title:', event.meta?.title);
+    console.log('Subtitles:', event.subtitles);
+  }
+
+  if (event.type === 'source') {
+    console.log(`Source: ${event.source.label} → ${event.source.url}`);
+  }
+
+  if (event.type === 'done') {
+    console.log(`Stream complete. Total sources: ${event.total}`);
+    es.close();
+  }
+};
+
+es.onerror = () => es.close();
+```
+
+```javascript JavaScript (fetch)
+const BASE = 'https://missourimonster-plsdontusethisinurprojectusetheotherone.hf.space';
+
+const res = await fetch(`${BASE}/movie?id=550`);
+const reader = res.body.getReader();
+const decoder = new TextDecoder();
+let buffer = '';
+
+while (true) {
+  const { done, value } = await reader.read();
+  if (done) break;
+
+  buffer += decoder.decode(value, { stream: true });
+  const lines = buffer.split('\n');
+  buffer = lines.pop();
+
+  for (const line of lines) {
+    if (!line.startsWith('data: ')) continue;
+    const event = JSON.parse(line.slice(6));
+
+    if (event.type === 'meta')   handleMeta(event);
+    if (event.type === 'source') handleSource(event.source);
+    if (event.type === 'done')   console.log(`Done. ${event.total} sources.`);
+  }
+}
 ```
 
 ```typescript TypeScript
+const BASE = 'https://missourimonster-plsdontusethisinurprojectusetheotherone.hf.space';
+
 interface Source {
   source: string;
   label: string;
@@ -50,95 +98,84 @@ interface Subtitle {
   source: string;
 }
 
-interface MovieResponse {
-  sources: Source[];
-  subtitles: Subtitle[];
-  meta: Record<string, unknown> | null;
-}
+interface MetaEvent   { type: 'meta';   meta: Record<string, unknown> | null; subtitles: Subtitle[]; }
+interface SourceEvent { type: 'source'; source: Source; }
+interface DoneEvent   { type: 'done';   total: number; }
 
-const data: MovieResponse = await fetch(
-  'https://missourimonster-vyla.hf.space/api/movie?id=550'
-).then(r => r.json());
+type SSEEvent = MetaEvent | SourceEvent | DoneEvent;
+
+async function streamMovie(tmdbId: number, onSource: (s: Source) => void) {
+  const res = await fetch(`${BASE}/movie?id=${tmdbId}`);
+  const reader = res.body!.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop()!;
+
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      const event: SSEEvent = JSON.parse(line.slice(6));
+      if (event.type === 'source') onSource(event.source);
+    }
+  }
+}
 ```
 
 ```python Python
-import requests
+import requests, json
 
-data = requests.get(
-  'https://missourimonster-vyla.hf.space/api/movie',
-  params={'id': 550}
-).json()
+BASE = 'https://missourimonster-plsdontusethisinurprojectusetheotherone.hf.space'
 
-BASE = 'https://missourimonster-vyla.hf.space'
-for source in data['sources']:
-    print(f"{source['label']}: {BASE}{source['url']}")
-```
+with requests.get(f'{BASE}/movie', params={'id': 550}, stream=True) as res:
+    for line in res.iter_lines():
+        if not line or not line.startswith(b'data: '):
+            continue
+        event = json.loads(line[6:])
 
-```go Go
-package main
+        if event['type'] == 'meta':
+            print('Title:', event['meta'].get('title'))
 
-import (
-  "encoding/json"
-  "fmt"
-  "net/http"
-)
+        elif event['type'] == 'source':
+            s = event['source']
+            print(f"{s['label']}: {s['url']}")
 
-type Source struct {
-  Source string `json:"source"`
-  Label  string `json:"label"`
-  URL    string `json:"url"`
-}
-
-type MovieResponse struct {
-  Sources   []Source               `json:"sources"`
-  Subtitles []map[string]string    `json:"subtitles"`
-  Meta      map[string]interface{} `json:"meta"`
-}
-
-func main() {
-  res, _ := http.Get("https://missourimonster-vyla.hf.space/api/movie?id=550")
-  defer res.Body.Close()
-
-  var data MovieResponse
-  json.NewDecoder(res.Body).Decode(&data)
-
-  base := "https://missourimonster-vyla.hf.space"
-  for _, s := range data.Sources {
-    fmt.Printf("%s: %s%s\n", s.Label, base, s.URL)
-  }
-}
+        elif event['type'] == 'done':
+            print(f"Done. {event['total']} sources.")
+            break
 ```
 </CodeGroup>
 
 ---
 
-## Response
+## SSE Event Reference
 
-<ResponseField name="sources" type="Source[]" required>
-  Array of verified, proxied HLS sources. Only streams that passed the live `#EXTM3U` verification check are included.
+### `meta`
 
-  <Expandable title="Source object">
-    <ResponseField name="source" type="string">
-      Internal provider key. Matches the keys in `/api/health` and `/api/test`.
-    </ResponseField>
-    <ResponseField name="label" type="string">
-      Human-readable provider name.
-    </ResponseField>
-    <ResponseField name="url" type="string">
-      Proxied HLS stream URL. All M3U8 segment and encryption key URIs are rewritten to route through the proxy. **Prepend `https://missourimonster-vyla.hf.space`** before passing to `hls.loadSource()`.
-    </ResponseField>
-  </Expandable>
+Emitted first, before any provider resolves.
+
+<ResponseField name="type" type="string" required>
+  Always `"meta"`.
+</ResponseField>
+
+<ResponseField name="meta" type="object | null">
+  Raw TMDB movie metadata. `null` if no `TMDB_API_KEY` is configured on the server.
 </ResponseField>
 
 <ResponseField name="subtitles" type="Subtitle[]" required>
-  Available subtitle tracks. Empty array `[]` if none are found for this title.
+  Available subtitle tracks. Empty array `[]` if none are found.
 
   <Expandable title="Subtitle object">
     <ResponseField name="label" type="string">
-      Language name, e.g. `English`, `Spanish`, `Arabic`, `French`.
+      Language name, e.g. `English`, `Spanish`, `Arabic`.
     </ResponseField>
     <ResponseField name="file" type="string">
-      Direct URL to a subtitle file (`.vtt` or `.srt`). Use as `<track src="...">` or pass to your player's subtitle API.
+      Direct URL to a `.vtt` or `.srt` subtitle file. Use as `<track src="...">` or pass to your player's subtitle API.
     </ResponseField>
     <ResponseField name="type" type="string">
       Subtitle format — `vtt` or `srt`.
@@ -149,72 +186,71 @@ func main() {
   </Expandable>
 </ResponseField>
 
-<ResponseField name="meta" type="object | null">
-  TMDB movie metadata. `null` if no `TMDB_API_KEY` is configured on the server. When present, this is the raw TMDB API response for the movie.
+---
+
+### `source`
+
+Emitted once per verified, working provider.
+
+<ResponseField name="type" type="string" required>
+  Always `"source"`.
+</ResponseField>
+
+<ResponseField name="source" type="Source" required>
+  <Expandable title="Source object">
+    <ResponseField name="source" type="string">
+      Internal provider key. Matches the keys in `/health`.
+    </ResponseField>
+    <ResponseField name="label" type="string">
+      Human-readable provider name.
+    </ResponseField>
+    <ResponseField name="url" type="string">
+      Fully-qualified, proxied HLS stream URL. Pass directly to `hls.loadSource()`. All M3U8 segment and encryption key URIs are rewritten to route through the proxy.
+    </ResponseField>
+  </Expandable>
 </ResponseField>
 
 ---
 
-## Responses
+### `done`
 
-<Tabs>
-  <Tab title="200 — Success">
-    ```json
-    {
-      "sources": [
-        {
-          "source": "provider-a",
-          "label": "Provider A",
-          "url": "/api?url=https%3A%2F%2F...&pa=1"
-        },
-        {
-          "source": "provider-b",
-          "label": "Provider B",
-          "url": "/api?url=https%3A%2F%2F...&pb=1"
-        }
-      ],
-      "subtitles": [
-        {
-          "label": "English",
-          "file": "https://sub.vdrk.site/v1/movie/550/English.vtt",
-          "type": "vtt",
-          "source": "v1"
-        },
-        {
-          "label": "Spanish",
-          "file": "https://sub.vdrk.site/v1/movie/550/Spanish.vtt",
-          "type": "vtt",
-          "source": "v1"
-        }
-      ],
-      "meta": {
-        "id": 550,
-        "title": "Fight Club",
-        "release_date": "1999-10-15",
-        "runtime": 139,
-        "vote_average": 8.438
-      }
-    }
-    ```
-  </Tab>
-  <Tab title="400 — Missing ID">
-    ```json
-    { "error": "missing id" }
-    ```
-  </Tab>
-  <Tab title="502 — No Sources">
-    All providers failed verification. Try again, or check `/api/health` to see which providers are up.
+Emitted when all providers have resolved or timed out.
 
-    ```json
-    { "error": "no working sources found" }
-    ```
-  </Tab>
-  <Tab title="500 — Server Error">
-    ```json
-    { "error": "<error message>" }
-    ```
-  </Tab>
-</Tabs>
+<ResponseField name="type" type="string" required>
+  Always `"done"`.
+</ResponseField>
+
+<ResponseField name="total" type="number" required>
+  The total number of working `source` events that were emitted during this stream.
+</ResponseField>
+
+---
+
+## Example SSE Stream
+
+```
+data: {"type":"meta","meta":{"id":550,"title":"Fight Club","release_date":"1999-10-15","runtime":139},"subtitles":[{"label":"English","file":"https://cache.vdrk.site/v1/vtt/movie/550/English.vtt","type":"vtt","source":"v1"}]}
+
+data: {"type":"source","source":{"source":"provider-a","label":"Provider A","url":"https://missourimonster-plsdontusethisinurprojectusetheotherone.hf.space/api?url=...&pa=1"}}
+
+data: {"type":"source","source":{"source":"provider-b","label":"Provider B","url":"https://missourimonster-plsdontusethisinurprojectusetheotherone.hf.space/api?url=...&pb=1"}}
+
+data: {"type":"done","total":2}
+```
+
+---
+
+## Status Codes
+
+| Status | Meaning |
+|--------|---------|
+| `200` | SSE stream opened successfully — events follow |
+| `400` | Missing `id` parameter |
+| `500` | Server error before the stream could begin |
+
+<Note>
+  There is no `502` at the HTTP level for movies. If all providers fail, the stream will emit zero `source` events and then a `done` event with `total: 0`. Always check that you received at least one `source` event before attempting playback.
+</Note>
 
 ---
 
@@ -222,20 +258,15 @@ func main() {
 
 <AccordionGroup>
   <Accordion title="Response time">
-    Typical response time is **3–8 seconds**. The request waits for all providers to respond or time out — the slowest active provider determines the ceiling. Always show a loading state in your UI.
+    The `meta` event fires almost instantly. Individual `source` events arrive throughout the stream as providers resolve — typically within **3–8 seconds** of opening the connection. The stream closes after the slowest configured provider times out.
   </Accordion>
-  <Accordion title="Result ordering">
-    Sources are returned in the order they passed verification, which generally correlates with provider speed. The first source is usually the fastest-responding one.
+  <Accordion title="Source ordering">
+    Sources arrive in the order providers resolve, which generally correlates with speed. Use the first `source` event to begin playback and queue the rest as fallbacks.
   </Accordion>
-  <Accordion title="Empty sources vs 502">
-    A `502` with `"no working sources found"` means all providers returned nothing. A `200` with an empty `sources` array should not occur — this is handled server-side.
+  <Accordion title="Zero sources">
+    If all providers fail, you'll receive a `done` event with `total: 0` and no `source` events. Check `/health` to see which providers are up.
   </Accordion>
-  <Accordion title="Using the URL field">
-    The `url` field is a relative path starting with `/api?url=...`. Build an absolute URL like this:
-
-    ```javascript
-    const streamUrl = 'https://missourimonster-vyla.hf.space' + source.url;
-    hls.loadSource(streamUrl);
-    ```
+  <Accordion title="Using EventSource vs fetch streaming">
+    `EventSource` is simpler but doesn't support POST or custom headers. The `fetch` + `ReadableStream` approach works everywhere and is shown in the examples above.
   </Accordion>
 </AccordionGroup>

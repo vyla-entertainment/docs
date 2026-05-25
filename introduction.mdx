@@ -1,6 +1,6 @@
 ---
 title: Introduction
-description: One API. Multiple providers. Verified HLS streams for any movie or TV show — proxied, CORS-safe, and ready to play.
+description: One API. Multiple providers. Verified HLS streams for any movie or TV show — proxied, CORS-safe, and streamed in real time.
 ---
 
 <img
@@ -16,25 +16,25 @@ description: One API. Multiple providers. Verified HLS streams for any movie or 
 
 ## What is Vyla API?
 
-Vyla API is a **Node.js** streaming API hosted on Hugging Face Spaces. It fans out to multiple streaming providers simultaneously, verifies every stream live, and returns only the URLs that actually work — proxied, CORS-safe, and ready to drop into any HLS player.
+Vyla API is a **Node.js** streaming API hosted on Hugging Face Spaces. It fans out to multiple streaming providers simultaneously, verifies every stream live, and **streams results back to your client in real time via Server-Sent Events (SSE)** — so your player can start as soon as the first source is ready, without waiting for all providers to finish.
 
-Pass a TMDB ID. Get back working streams, multi-language subtitles, and TMDB metadata — in a single request.
+Pass a TMDB ID. Get back a live stream of working sources, multi-language subtitles, and TMDB metadata — one event at a time.
 
 <CardGroup cols={2}>
   <Card title="Multi-Provider Fanout">
-    All configured providers are queried in parallel with per-source jitter, retries, and timeouts. Dead sources are silently dropped from the response.
+    All configured providers are queried in parallel with per-source jitter, retries, and timeouts. Dead sources are silently dropped from the stream.
   </Card>
-  <Card title="Live Stream Verification">
-    Every candidate URL is fetched and checked for a valid `#EXTM3U` header before it appears in the response. No dead links.
+  <Card title="Real-Time SSE Streaming">
+    Results are pushed as Server-Sent Events the moment each provider resolves. No waiting for the slowest provider — your UI can render the first source immediately.
   </Card>
   <Card title="Built-in HLS Proxy">
     Stream URLs are wrapped in a server-hosted proxy that rewrites M3U8 segment and key paths. CORS issues in the browser are gone by design.
   </Card>
   <Card title="Subtitles Included">
-    VTT subtitle tracks in multiple languages are automatically bundled into every movie and TV response, or available standalone.
+    VTT and SRT subtitle tracks in multiple languages are streamed as the first event (`meta`) in every movie and TV response.
   </Card>
   <Card title="Download Links">
-    Direct download links for movies and TV episodes with quality labels and file sizes.
+    A dedicated endpoint returns direct download links for movies and TV episodes with quality labels and file sizes.
   </Card>
   <Card title="Health Monitoring">
     A dedicated health endpoint probes every provider in real time and reports per-source latency and status.
@@ -50,7 +50,7 @@ Pass a TMDB ID. Get back working streams, multi-language subtitles, and TMDB met
 ## Base URL
 
 ```
-https://missourimonster-vyla.hf.space
+https://missourimonster-plsdontusethisinurprojectusetheotherone.hf.space
 ```
 
 All endpoints return `Access-Control-Allow-Origin: *`. No authentication required.
@@ -61,19 +61,19 @@ All endpoints return `Access-Control-Allow-Origin: *`. No authentication require
 
 <Steps>
   <Step title="Request arrives">
-    Your app sends a request with a TMDB ID (and optionally season + episode for TV).
+    Your app opens an SSE connection to `/movie?id=` or `/tv?id=&season=&episode=`.
+  </Step>
+  <Step title="Meta event fires immediately">
+    The server emits a `meta` event with TMDB metadata and all available subtitle tracks — before any provider has finished.
   </Step>
   <Step title="Parallel provider fanout">
     All active providers are queried simultaneously. Each source applies random jitter to stagger upstream requests, then retries on failure up to its configured limit.
   </Step>
-  <Step title="Live verification">
-    Every URL returned by a provider is fetched and checked for a valid HLS playlist. Anything that doesn't respond with `#EXTM3U` is dropped.
+  <Step title="Source events stream in">
+    As each provider resolves and passes live verification, a `source` event is emitted. Your player can begin immediately on the first one.
   </Step>
-  <Step title="Proxy wrapping">
-    Surviving URLs are wrapped in the server proxy path. M3U8 segment and encryption key URIs are rewritten so all HLS traffic flows through the same origin.
-  </Step>
-  <Step title="Response returned">
-    Working sources, subtitle tracks, and TMDB metadata are returned as a single JSON response — ready to feed straight into HLS.js or any HLS player.
+  <Step title="Done event closes the stream">
+    Once all providers have either resolved or timed out, a `done` event is sent with the total source count. The connection closes cleanly.
   </Step>
 </Steps>
 
@@ -83,18 +83,73 @@ All endpoints return `Access-Control-Allow-Origin: *`. No authentication require
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/movie` | `GET` | All working sources + subtitles + metadata for a movie |
-| `/api/tv` | `GET` | All working sources + subtitles + metadata for a TV episode |
-| `/api/subtitles/movie/<id>` | `GET` | Subtitle tracks for a movie |
-| `/api/subtitles/tv/<id>/<s>/<e>` | `GET` | Subtitle tracks for a TV episode |
-| `/api/downloads/movie/<id>` | `GET` | Download links for a movie |
-| `/api/downloads/tv/<id>/<s>/<e>` | `GET` | Download links for a TV episode |
-| `/api/health` | `GET` | Per-provider health check with latency |
-| `/api/test/<id>` | `GET` | Debug a single provider in isolation |
+| `/movie?id=:id` | `GET` | SSE stream of sources + meta for a movie |
+| `/tv?id=:id&season=:s&episode=:e` | `GET` | SSE stream of sources + meta for a TV episode |
+| `/subtitles` | `GET` | Subtitle tracks (standalone) |
+| `/downloads` | `GET` | Download links for movies or TV episodes |
+| `/health` | `GET` | Per-provider health check with latency |
+| `/test` | `GET` | Debug a single provider in isolation |
 
 <Tip>
-  Check which providers are currently live: [`/api/health`](https://missourimonster-vyla.hf.space/api/health)
+  Check which providers are currently live: [`/health`](https://missourimonster-plsdontusethisinurprojectusetheotherone.hf.space/health)
 </Tip>
+
+---
+
+## SSE Event Types
+
+All `/movie` and `/tv` responses are Server-Sent Events. Each event is a JSON-encoded line prefixed with `data: `.
+
+### `meta` — First event
+
+Emitted immediately, before any provider resolves. Contains TMDB metadata and all subtitle tracks for the title.
+
+```json
+{
+  "type": "meta",
+  "meta": {
+    "id": 550,
+    "title": "Fight Club",
+    "release_date": "1999-10-15",
+    "runtime": 139,
+    "vote_average": 8.438
+  },
+  "subtitles": [
+    {
+      "label": "English",
+      "file": "https://cache.vdrk.site/v1/vtt/movie/550/English.vtt",
+      "type": "vtt",
+      "source": "v1"
+    }
+  ]
+}
+```
+
+### `source` — One per working provider
+
+Emitted each time a provider passes live verification. Your player should start on the first one and fall back to subsequent ones on error.
+
+```json
+{
+  "type": "source",
+  "source": {
+    "source": "provider-key",
+    "label": "Provider Label",
+    "url": "https://missourimonster-plsdontusethisinurprojectusetheotherone.hf.space/api?url=...&pp=1"
+  }
+}
+```
+
+### `done` — Final event
+
+Signals the stream is complete. The `total` field is the number of working sources that were emitted.
+
+```json
+{
+  "type": "done",
+  "total": 14
+}
+```
 
 ---
 
@@ -102,40 +157,38 @@ All endpoints return `Access-Control-Allow-Origin: *`. No authentication require
 
 ### Source Object
 
-Returned inside `sources[]` on movie and TV responses.
+Returned inside `source` events on movie and TV streams.
 
 ```json
 {
   "source": "provider-key",
   "label": "Provider Name",
-  "url": "/api?url=https%3A%2F%2F...&pp=1"
+  "url": "https://missourimonster-plsdontusethisinurprojectusetheotherone.hf.space/api?url=https%3A%2F%2F...&pp=1"
 }
 ```
 
 <ResponseField name="source" type="string">
-  Internal provider key. Matches the keys shown in `/api/health` and `/api/test`.
+  Internal provider key. Matches the keys shown in `/health`.
 </ResponseField>
 
 <ResponseField name="label" type="string">
-  Human-readable provider name displayed in your UI.
+  Human-readable provider name to display in your UI.
 </ResponseField>
 
 <ResponseField name="url" type="string">
-  Proxied, CORS-safe HLS stream URL. Pass directly to `hls.loadSource()`. All M3U8 segment and key URIs are pre-rewritten to flow through the proxy.
-
-  **Important:** This is a relative path. Prepend `https://missourimonster-vyla.hf.space` to get an absolute URL.
+  Fully-qualified, proxied, CORS-safe HLS stream URL. Pass directly to `hls.loadSource()` — no base URL prepending needed. All M3U8 segment and key URIs are pre-rewritten to flow through the proxy.
 </ResponseField>
 
 ---
 
 ### Subtitle Object
 
-Returned inside `subtitles[]` on movie and TV responses, and as the top-level array on subtitle endpoints.
+Returned inside the `subtitles` array of the `meta` event, and as the top-level array on the `/subtitles` endpoint.
 
 ```json
 {
   "label": "English",
-  "file": "https://sub.vdrk.site/v1/movie/550/English.vtt",
+  "file": "https://cache.vdrk.site/v1/vtt/movie/550/English.vtt",
   "type": "vtt",
   "source": "v1"
 }
@@ -161,7 +214,7 @@ Returned inside `subtitles[]` on movie and TV responses, and as the top-level ar
 
 ### Download Object
 
-Returned inside `downloads[]` on download endpoints.
+Returned inside `downloads[]` on the `/downloads` endpoint.
 
 ```json
 {
@@ -203,7 +256,7 @@ Every endpoint returns:
 ```http
 Access-Control-Allow-Origin: *
 Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD
-Content-Type: application/json
+Content-Type: application/json  (or text/event-stream for SSE endpoints)
 ```
 
 Preflight `OPTIONS` requests return `204 No Content` immediately.

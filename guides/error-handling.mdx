@@ -1,15 +1,15 @@
 ---
 title: Error Handling
-description: Patterns for handling failures, fallbacks, and edge cases when integrating the Vyla API.
+description: Patterns for handling SSE failures, source fallbacks, and edge cases when integrating the API.
 ---
 
-Streaming APIs deal with unreliable upstream sources. This page covers every failure mode you'll encounter and the recommended pattern for handling each one.
+The `/movie` and `/tv` endpoints stream via SSE — error handling looks different from a standard JSON API. This page covers every failure mode and the recommended pattern for each.
 
 ---
 
 ## Error Response Shape
 
-All errors return JSON with a single `error` field:
+Non-streaming endpoints (`/health`, `/subtitles`, `/downloads`, `/test`) return standard JSON errors:
 
 ```json
 { "error": "description of what went wrong" }
@@ -20,87 +20,120 @@ All errors return JSON with a single `error` field:
 | `400` | Missing or invalid request parameters |
 | `404` | No data found (subtitles, downloads) |
 | `500` | Unexpected server error |
-| `502` | All providers failed verification |
+
+For `/movie` and `/tv`, HTTP `200` is returned immediately when the SSE stream opens. Failures surface as **zero `source` events** followed by a `done` event with `total: 0` — not as HTTP error codes.
 
 ---
 
-## Handling No Sources (`502`)
+## Handling No Sources
 
-The most common failure — all providers failed to return a playable stream.
+The most common failure — all providers failed to return a playable stream. Detect it by checking `total` in the `done` event.
 
 ```typescript
-const res  = await fetch('https://missourimonster-vyla.hf.space/api/movie?id=550');
-const data = await res.json();
+const BASE = 'https://missourimonster-plsdontusethisinurprojectusetheotherone.hf.space';
 
-if (res.status === 502 || !data.sources?.length) {
-  showError('This title is currently unavailable. Try again later.');
-  return;
+const res     = await fetch(`${BASE}/movie?id=550`);
+const reader  = res.body!.getReader();
+const decoder = new TextDecoder();
+let buffer    = '';
+let started   = false;
+
+while (true) {
+  const { done, value } = await reader.read();
+  if (done) break;
+
+  buffer += decoder.decode(value, { stream: true });
+  const lines = buffer.split('\n');
+  buffer = lines.pop()!;
+
+  for (const line of lines) {
+    if (!line.startsWith('data: ')) continue;
+    const event = JSON.parse(line.slice(6));
+
+    if (event.type === 'source') { started = true; playSource(event.source.url); }
+
+    if (event.type === 'done' && !started) {
+      showError('This title is currently unavailable. Try again later.');
+    }
+  }
 }
-
-// sources is guaranteed non-empty here
-playSource(data.sources[0]);
 ```
-
-<Tip>
-  A `200` with `sources.length === 0` should not occur — the API returns `502` when all providers fail. Guard against it anyway as a safety net.
-</Tip>
 
 ---
 
-## Source Fallback Loop
+## Source Fallback Queue
 
-Providers can fail mid-stream after the manifest loads. Build a fallback loop that tries each source in sequence:
+Sources stream in as providers resolve. Queue every `source` event URL and fall back to the next one if playback fails mid-stream:
 
 ```typescript
 import Hls from 'hls.js';
 
-const BASE = 'https://missourimonster-vyla.hf.space';
-
-interface Source {
-  source: string;
-  label: string;
-  url: string;
-}
+const BASE = 'https://missourimonster-plsdontusethisinurprojectusetheotherone.hf.space';
 
 async function playWithFallback(
   videoEl: HTMLVideoElement,
-  sources: Source[],
-  onSourceChange?: (source: Source) => void
+  tmdbId: number,
+  season?: number,
+  episode?: number,
+  onSourceChange?: (label: string) => void
 ) {
-  let index = 0;
+  const endpoint = season && episode
+    ? `${BASE}/tv?id=${tmdbId}&season=${season}&episode=${episode}`
+    : `${BASE}/movie?id=${tmdbId}`;
+
+  const queue: { url: string; label: string }[] = [];
+  let started = false;
   let hls: Hls | null = null;
 
-  function trySource() {
-    if (index >= sources.length) {
+  function tryNext() {
+    if (!queue.length) {
       console.error('All sources exhausted');
       return;
     }
 
-    const source = sources[index];
-    onSourceChange?.(source);
+    const { url, label } = queue.shift()!;
+    onSourceChange?.(label);
 
     hls?.destroy();
-    hls = new Hls({
-      maxBufferLength: 30,
-      maxMaxBufferLength: 60,
-    });
+    hls = new Hls({ maxBufferLength: 30, maxMaxBufferLength: 60 });
 
     hls.on(Hls.Events.ERROR, (_, err) => {
       if (err.fatal) {
-        console.warn(`Source "${source.label}" failed:`, err.type);
-        index++;
-        trySource();
+        console.warn(`Source "${label}" failed:`, err.type);
+        tryNext();
       }
     });
 
-    hls.loadSource(BASE + source.url);
+    hls.loadSource(url);
     hls.attachMedia(videoEl);
     hls.on(Hls.Events.MANIFEST_PARSED, () => videoEl.play());
   }
 
-  trySource();
+  const res     = await fetch(endpoint);
+  const reader  = res.body!.getReader();
+  const decoder = new TextDecoder();
+  let buffer    = '';
 
-  return () => hls?.destroy(); // cleanup function
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop()!;
+
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      const event = JSON.parse(line.slice(6));
+
+      if (event.type === 'source') {
+        queue.push({ url: event.source.url, label: event.source.label });
+        if (!started) { started = true; tryNext(); }
+      }
+    }
+  }
+
+  return () => hls?.destroy();
 }
 ```
 
@@ -108,37 +141,24 @@ async function playWithFallback(
 
 ## Network Timeouts
 
-The API can take 20+ seconds when only slow providers are working. Set a client-side timeout:
+The SSE stream can stay open 20+ seconds while slow providers resolve. Set a client-side timeout using `AbortController`:
 
 ```typescript
-async function fetchWithTimeout(
+async function fetchStreamWithTimeout(
   url: string,
-  timeoutMs = 15000
-): Promise<Response> {
+  timeoutMs = 20000
+): Promise<ReadableStreamDefaultReader<Uint8Array>> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const res = await fetch(url, { signal: controller.signal });
     clearTimeout(timer);
-    return res;
-  } catch (err) {
+    return res.body!.getReader();
+  } catch (err: any) {
     clearTimeout(timer);
-    if (err.name === 'AbortError') throw new Error('Request timed out');
+    if (err.name === 'AbortError') throw new Error('Stream timed out');
     throw err;
-  }
-}
-
-// Usage
-try {
-  const res  = await fetchWithTimeout(
-    'https://missourimonster-vyla.hf.space/api/movie?id=550',
-    15000
-  );
-  const data = await res.json();
-} catch (err) {
-  if (err.message === 'Request timed out') {
-    showError('Loading is taking too long. Please try again.');
   }
 }
 ```
@@ -147,42 +167,41 @@ try {
 
 ## Handling Missing Subtitles
 
-Subtitles are not guaranteed for every title. Always handle the empty array case:
+Subtitles arrive in the `meta` event. Always guard against an empty array:
 
 ```typescript
-const data = await fetch(
-  'https://missourimonster-vyla.hf.space/api/movie?id=550'
-).then(r => r.json());
-
-if (data.subtitles.length === 0) {
-  subtitleButton.style.display = 'none';
-} else {
-  attachSubtitles(videoEl, data.subtitles);
+if (event.type === 'meta') {
+  if (!event.subtitles.length) {
+    subtitleButton.style.display = 'none';
+  } else {
+    attachSubtitles(videoEl, event.subtitles);
+  }
 }
 ```
 
 ---
 
-## Retry Logic for Transient Failures
+## Retry Logic for Stream Failures
 
-The API retries each provider internally, but you can add a top-level retry for full request failures (network errors, 5xx):
+Add a top-level retry for complete stream failures (network errors, server 5xx before the stream opens):
 
 ```typescript
-async function fetchWithRetry(
+async function fetchStreamWithRetry(
   url: string,
   attempts = 3,
   delayMs = 2000
-): Promise<any> {
+): Promise<Response> {
   for (let i = 0; i < attempts; i++) {
     try {
       const res = await fetch(url);
-      if (res.ok || res.status === 404) return res.json(); // don't retry 404
+      if (res.ok) return res;
       if (i === attempts - 1) throw new Error(`HTTP ${res.status}`);
     } catch (err) {
       if (i === attempts - 1) throw err;
       await new Promise(r => setTimeout(r, delayMs * (i + 1)));
     }
   }
+  throw new Error('Max retries exceeded');
 }
 ```
 
@@ -190,24 +209,25 @@ async function fetchWithRetry(
 
 ## Checking Health Before Requests
 
-If you're building a dashboard or monitoring tool, check provider health before movie/TV requests to give users an early warning:
+If you're building a dashboard, check provider health before opening a stream to give users an early warning:
 
 ```typescript
-async function checkAndLoad(tmdbId: number) {
+async function checkAndStream(tmdbId: number) {
   const health = await fetch(
-    'https://missourimonster-vyla.hf.space/api/health'
+    'https://missourimonster-plsdontusethisinurprojectusetheotherone.hf.space/health'
   ).then(r => r.json());
 
   if (health.status === 'degraded') {
     const down = Object.entries(health.sources)
       .filter(([, v]: any) => !v.ok)
       .map(([k]) => k);
-    console.warn(`Degraded providers: ${down.join(', ')}`);
+    console.warn(`Degraded providers: ${down.length}`);
   }
 
-  // Proceed — degraded just means fewer available sources
-  return fetch(`https://missourimonster-vyla.hf.space/api/movie?id=${tmdbId}`)
-    .then(r => r.json());
+  // Proceed — degraded just means fewer sources will stream
+  return fetch(
+    `https://missourimonster-plsdontusethisinurprojectusetheotherone.hf.space/movie?id=${tmdbId}`
+  );
 }
 ```
 
@@ -216,10 +236,10 @@ async function checkAndLoad(tmdbId: number) {
 ## Full Error Boundary (React)
 
 ```tsx
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import Hls from 'hls.js';
 
-const BASE = 'https://missourimonster-vyla.hf.space';
+const BASE = 'https://missourimonster-plsdontusethisinurprojectusetheotherone.hf.space';
 
 type PlayerState =
   | { status: 'idle' }
@@ -227,50 +247,71 @@ type PlayerState =
   | { status: 'playing'; sourceLabel: string }
   | { status: 'error'; message: string };
 
-export function useVylaPlayer(tmdbId: number) {
+export function useStreamPlayer(tmdbId: number) {
   const [state, setState] = useState<PlayerState>({ status: 'idle' });
+  const hlsRef = useRef<Hls | null>(null);
 
   const load = useCallback(async (videoEl: HTMLVideoElement) => {
     setState({ status: 'loading' });
 
-    let data: any;
-    try {
-      const res = await fetch(`${BASE}/api/movie?id=${tmdbId}`);
-      data = await res.json();
-    } catch {
-      setState({ status: 'error', message: 'Network error. Check your connection.' });
-      return;
-    }
+    const queue: { url: string; label: string }[] = [];
+    let started = false;
 
-    if (!data.sources?.length) {
-      setState({ status: 'error', message: 'No sources available for this title.' });
-      return;
-    }
-
-    let index = 0;
-
-    function trySource() {
-      if (index >= data.sources.length) {
+    function tryNext() {
+      if (!queue.length) {
         setState({ status: 'error', message: 'All sources failed.' });
         return;
       }
-      const source = data.sources[index];
-      const hls    = new Hls();
+
+      const { url, label } = queue.shift()!;
+      hlsRef.current?.destroy();
+
+      const hls = new Hls();
+      hlsRef.current = hls;
 
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        setState({ status: 'playing', sourceLabel: source.label });
+        setState({ status: 'playing', sourceLabel: label });
         videoEl.play();
       });
-
       hls.on(Hls.Events.ERROR, (_, err) => {
-        if (err.fatal) { hls.destroy(); index++; trySource(); }
+        if (err.fatal) { hls.destroy(); tryNext(); }
       });
 
-      hls.loadSource(BASE + source.url);
+      hls.loadSource(url);
       hls.attachMedia(videoEl);
     }
 
-    trySource();
+    try {
+      const res     = await fetch(`${BASE}/movie?id=${tmdbId}`);
+      const reader  = res.body!.getReader();
+      const decoder = new TextDecoder();
+      let buffer    = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop()!;
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const event = JSON.parse(line.slice(6));
+
+          if (event.type === 'source') {
+            queue.push({ url: event.source.url, label: event.source.label });
+            if (!started) { started = true; tryNext(); }
+          }
+
+          if (event.type === 'done' && !started) {
+            setState({ status: 'error', message: 'No sources available for this title.' });
+          }
+        }
+      }
+    } catch {
+      setState({ status: 'error', message: 'Network error. Check your connection.' });
+    }
   }, [tmdbId]);
 
   return { state, load };

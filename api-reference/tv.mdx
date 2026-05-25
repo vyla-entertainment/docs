@@ -1,10 +1,10 @@
 ---
 title: TV Episode Sources
-api: "GET https://missourimonster-vyla.hf.space/api/tv"
-description: Fetch all working HLS sources, subtitle tracks, and TMDB metadata for a TV episode.
+api: "GET https://missourimonster-plsdontusethisinurprojectusetheotherone.hf.space/tv"
+description: Stream verified HLS sources, subtitle tracks, and TMDB metadata for a TV episode via Server-Sent Events.
 ---
 
-Identical to the movie endpoint in behavior, but takes a series ID plus season and episode numbers. All configured providers are queried in parallel, each candidate URL is verified live, and only streams that return a valid HLS playlist are included in the response.
+Identical to the movie endpoint in behavior, but requires a series ID plus season and episode numbers. Results stream via Server-Sent Events — the `meta` event fires immediately with subtitles and TMDB data, then each working provider emits its own `source` event as it resolves.
 
 ---
 
@@ -30,21 +30,65 @@ Identical to the movie endpoint in behavior, but takes a series ID plus season a
 
 <CodeGroup>
 ```bash cURL
-curl "https://missourimonster-vyla.hf.space/api/tv?id=1396&season=1&episode=1"
+curl -N "https://missourimonster-plsdontusethisinurprojectusetheotherone.hf.space/tv?id=1396&season=1&episode=1"
 ```
 
-```javascript JavaScript
-const res  = await fetch(
-  'https://missourimonster-vyla.hf.space/api/tv?id=1396&season=1&episode=1'
-);
-const data = await res.json();
+```javascript JavaScript (EventSource)
+const BASE = 'https://missourimonster-plsdontusethisinurprojectusetheotherone.hf.space';
 
-const sources   = data.sources;
-const subtitles = data.subtitles;
-const meta      = data.meta; // episode-level TMDB metadata
+const es = new EventSource(`${BASE}/tv?id=1396&season=1&episode=1`);
+
+es.onmessage = (e) => {
+  const event = JSON.parse(e.data);
+
+  if (event.type === 'meta') {
+    console.log('Episode:', event.meta?.name);
+    console.log('Subtitles:', event.subtitles);
+  }
+
+  if (event.type === 'source') {
+    console.log(`Source: ${event.source.label} → ${event.source.url}`);
+  }
+
+  if (event.type === 'done') {
+    console.log(`Stream complete. Total sources: ${event.total}`);
+    es.close();
+  }
+};
+
+es.onerror = () => es.close();
+```
+
+```javascript JavaScript (fetch)
+const BASE = 'https://missourimonster-plsdontusethisinurprojectusetheotherone.hf.space';
+
+const res = await fetch(`${BASE}/tv?id=1396&season=1&episode=1`);
+const reader = res.body.getReader();
+const decoder = new TextDecoder();
+let buffer = '';
+
+while (true) {
+  const { done, value } = await reader.read();
+  if (done) break;
+
+  buffer += decoder.decode(value, { stream: true });
+  const lines = buffer.split('\n');
+  buffer = lines.pop();
+
+  for (const line of lines) {
+    if (!line.startsWith('data: ')) continue;
+    const event = JSON.parse(line.slice(6));
+
+    if (event.type === 'meta')   handleMeta(event);
+    if (event.type === 'source') handleSource(event.source);
+    if (event.type === 'done')   console.log(`Done. ${event.total} sources.`);
+  }
+}
 ```
 
 ```typescript TypeScript
+const BASE = 'https://missourimonster-plsdontusethisinurprojectusetheotherone.hf.space';
+
 interface Source {
   source: string;
   label: string;
@@ -58,62 +102,106 @@ interface Subtitle {
   source: string;
 }
 
-interface TvResponse {
-  sources: Source[];
-  subtitles: Subtitle[];
-  meta: Record<string, unknown> | null;
-}
+interface MetaEvent   { type: 'meta';   meta: Record<string, unknown> | null; subtitles: Subtitle[]; }
+interface SourceEvent { type: 'source'; source: Source; }
+interface DoneEvent   { type: 'done';   total: number; }
 
-const data: TvResponse = await fetch(
-  'https://missourimonster-vyla.hf.space/api/tv?id=1396&season=1&episode=1'
-).then(r => r.json());
+type SSEEvent = MetaEvent | SourceEvent | DoneEvent;
+
+async function streamEpisode(
+  seriesId: number,
+  season: number,
+  episode: number,
+  onSource: (s: Source) => void,
+  onMeta?: (meta: MetaEvent) => void
+) {
+  const res = await fetch(`${BASE}/tv?id=${seriesId}&season=${season}&episode=${episode}`);
+  const reader = res.body!.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop()!;
+
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      const event: SSEEvent = JSON.parse(line.slice(6));
+      if (event.type === 'meta')   onMeta?.(event);
+      if (event.type === 'source') onSource(event.source);
+    }
+  }
+}
 ```
 
 ```python Python
-import requests
+import requests, json
 
-data = requests.get(
-  'https://missourimonster-vyla.hf.space/api/tv',
-  params={'id': 1396, 'season': 1, 'episode': 1}
-).json()
+BASE = 'https://missourimonster-plsdontusethisinurprojectusetheotherone.hf.space'
 
-BASE = 'https://missourimonster-vyla.hf.space'
-for source in data['sources']:
-    print(f"{source['label']}: {BASE}{source['url']}")
+with requests.get(
+  f'{BASE}/tv',
+  params={'id': 1396, 'season': 1, 'episode': 1},
+  stream=True
+) as res:
+    for line in res.iter_lines():
+        if not line or not line.startswith(b'data: '):
+            continue
+        event = json.loads(line[6:])
+
+        if event['type'] == 'meta':
+            print('Episode:', event['meta'].get('name'))
+
+        elif event['type'] == 'source':
+            s = event['source']
+            print(f"{s['label']}: {s['url']}")
+
+        elif event['type'] == 'done':
+            print(f"Done. {event['total']} sources.")
+            break
 ```
 
 ```swift Swift
-let url = URL(string: "https://missourimonster-vyla.hf.space/api/tv?id=1396&season=1&episode=1")!
+let url = URL(string: "https://missourimonster-plsdontusethisinurprojectusetheotherone.hf.space/tv?id=1396&season=1&episode=1")!
 
-let (data, _) = try await URLSession.shared.data(from: url)
-let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
-let sources = json["sources"] as! [[String: String]]
-
-let base = "https://missourimonster-vyla.hf.space"
-for source in sources {
-    print("\(source["label"]!): \(base)\(source["url"]!)")
+// Use URLSession with a delegate to handle SSE line-by-line
+class SSEDelegate: NSObject, URLSessionDataDelegate {
+    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
+        guard let text = String(data: data, encoding: .utf8) else { return }
+        for line in text.components(separatedBy: "\n") {
+            guard line.hasPrefix("data: "),
+                  let json = line.dropFirst(6).data(using: .utf8),
+                  let event = try? JSONSerialization.jsonObject(with: json) as? [String: Any]
+            else { continue }
+            print(event)
+        }
+    }
 }
+
+let delegate = SSEDelegate()
+let session = URLSession(configuration: .default, delegate: delegate, delegateQueue: nil)
+session.dataTask(with: url).resume()
 ```
 </CodeGroup>
 
 ---
 
-## Response
+## SSE Event Reference
 
-<ResponseField name="sources" type="Source[]" required>
-  Array of verified, proxied HLS sources for the episode. Only streams that passed live verification are included.
+### `meta`
 
-  <Expandable title="Source object">
-    <ResponseField name="source" type="string">
-      Internal provider key.
-    </ResponseField>
-    <ResponseField name="label" type="string">
-      Human-readable provider name.
-    </ResponseField>
-    <ResponseField name="url" type="string">
-      Proxied HLS stream URL with M3U8 segments rewritten. Prepend `https://missourimonster-vyla.hf.space` for an absolute URL, then pass to `hls.loadSource()`.
-    </ResponseField>
-  </Expandable>
+Emitted first, before any provider resolves.
+
+<ResponseField name="type" type="string" required>
+  Always `"meta"`.
+</ResponseField>
+
+<ResponseField name="meta" type="object | null">
+  TMDB **episode-level** metadata — name, overview, air date, episode number, season number. `null` if no `TMDB_API_KEY` is configured.
 </ResponseField>
 
 <ResponseField name="subtitles" type="Subtitle[]" required>
@@ -135,69 +223,51 @@ for source in sources {
   </Expandable>
 </ResponseField>
 
-<ResponseField name="meta" type="object | null">
-  TMDB episode-level metadata (title, air date, overview, etc.). `null` if no `TMDB_API_KEY` is configured.
+---
+
+### `source`
+
+Emitted once per verified, working provider.
+
+<ResponseField name="type" type="string" required>
+  Always `"source"`.
+</ResponseField>
+
+<ResponseField name="source" type="Source" required>
+  <Expandable title="Source object">
+    <ResponseField name="source" type="string">
+      Internal provider key.
+    </ResponseField>
+    <ResponseField name="label" type="string">
+      Human-readable provider name.
+    </ResponseField>
+    <ResponseField name="url" type="string">
+      Fully-qualified, proxied HLS stream URL. Pass directly to `hls.loadSource()`.
+    </ResponseField>
+  </Expandable>
 </ResponseField>
 
 ---
 
-## Responses
+### `done`
 
-<Tabs>
-  <Tab title="200 — Success">
-    ```json
-    {
-      "sources": [
-        {
-          "source": "provider-a",
-          "label": "Provider A",
-          "url": "/api?url=https%3A%2F%2F...&pa=1"
-        },
-        {
-          "source": "provider-b",
-          "label": "Provider B",
-          "url": "/api?url=https%3A%2F%2F...&pb=1"
-        }
-      ],
-      "subtitles": [
-        {
-          "label": "English",
-          "file": "https://sub.vdrk.site/v1/tv/1396/1/1/English.vtt",
-          "type": "vtt",
-          "source": "v1"
-        }
-      ],
-      "meta": {
-        "id": 62085,
-        "name": "Pilot",
-        "overview": "...",
-        "air_date": "2008-01-20",
-        "episode_number": 1,
-        "season_number": 1
-      }
-    }
-    ```
-  </Tab>
-  <Tab title="400 — Missing Params">
-    Returned when any of `id`, `season`, or `episode` is missing from the query string.
+<ResponseField name="type" type="string" required>
+  Always `"done"`.
+</ResponseField>
 
-    ```json
-    { "error": "missing id, season, or episode" }
-    ```
-  </Tab>
-  <Tab title="502 — No Sources">
-    All providers failed to return a valid stream for this episode.
+<ResponseField name="total" type="number" required>
+  Total number of working `source` events emitted.
+</ResponseField>
 
-    ```json
-    { "error": "no working sources found" }
-    ```
-  </Tab>
-  <Tab title="500 — Server Error">
-    ```json
-    { "error": "<error message>" }
-    ```
-  </Tab>
-</Tabs>
+---
+
+## Status Codes
+
+| Status | Meaning |
+|--------|---------|
+| `200` | SSE stream opened successfully |
+| `400` | Missing `id`, `season`, or `episode` parameter |
+| `500` | Server error before the stream could begin |
 
 ---
 
@@ -205,7 +275,7 @@ for source in sources {
 
 <AccordionGroup>
   <Accordion title="Series ID vs Episode ID">
-    The `id` parameter is the **series** TMDB ID — the same ID regardless of which season or episode you request. Season and episode numbers are passed separately.
+    The `id` parameter is the **series** TMDB ID — the same value regardless of which season or episode you request. Season and episode numbers are passed separately.
 
     | Wrong | Right |
     |-------|-------|
@@ -213,9 +283,12 @@ for source in sources {
     | `id=62085` (Pilot episode) | `id=1396` (Breaking Bad series) |
   </Accordion>
   <Accordion title="Specials and bonus content">
-    Season `0` typically contains specials on TMDB. Support varies by provider — some handle it, others don't. Expect fewer working sources for specials.
+    Season `0` typically contains specials on TMDB. Support varies by provider — expect fewer working sources for specials.
   </Accordion>
   <Accordion title="Meta field is episode-level">
     Unlike the movie endpoint where `meta` describes the film, here `meta` contains **episode** data from TMDB — title, overview, air date, and episode number. Series-level metadata is not included.
+  </Accordion>
+  <Accordion title="Zero sources">
+    If all providers fail, you'll receive a `done` event with `total: 0` and no `source` events. Check `/health` to see which providers are up.
   </Accordion>
 </AccordionGroup>
