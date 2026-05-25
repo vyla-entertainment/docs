@@ -7,7 +7,7 @@ description: Debug a single provider in isolation — get the raw URL, proxy URL
 Tests one specific provider for a given TMDB ID without running the full parallel fanout. Useful for debugging why a source isn't appearing in movie or TV responses, or for checking a provider's availability before building.
 
 <Note>
-  This endpoint **does** run stream verification (the same `#EXTM3U` check as `/api/movie` and `/api/tv`). The `ok` field reflects whether a verified, playable URL was found — not just whether the provider returned something.
+  This endpoint runs the **same two-step verification pipeline** as `/movie` and `/tv` — a HEAD check on the raw URL, followed by a proxied HLS playability check. The `ok` field reflects whether a verified, playable URL was found. HTTP status is always `200` regardless of success or failure — always check `ok` in the body.
 </Note>
 
 ---
@@ -25,7 +25,7 @@ Tests one specific provider for a given TMDB ID without running the full paralle
 <ParamField query="source" type="string" required>
   Provider key to test. Must exactly match one of the configured source keys.
 
-  Available keys are listed in the `sources` field of [`/api/health`](https://missourimonster-vyla.hf.space/api/health) or [`/api/sources`](https://missourimonster-vyla.hf.space/api/sources).
+  Available keys are listed in the `sources` field of [`/api/health`](https://missourimonster-vyla.hf.space/api/health) or via [`GET /api?sources_meta`](https://missourimonster-vyla.hf.space/api?sources_meta).
 </ParamField>
 
 <ParamField query="season" type="number">
@@ -119,7 +119,7 @@ if res['error']:
 </ResponseField>
 
 <ResponseField name="url" type="string | null">
-  Proxied stream URL if the provider returned a valid stream. `null` on failure. Prepend the base URL before use.
+  Fully-qualified, proxied stream URL if the provider returned a valid stream. `null` on failure. Always an absolute URL — no base URL prepending needed.
 </ResponseField>
 
 <ResponseField name="raw_url" type="string | null">
@@ -147,7 +147,7 @@ if res['error']:
       "s": null,
       "e": null,
       "ok": true,
-      "url": "/api?url=https%3A%2F%2F...&pa=1",
+      "url": "https://missourimonster-vyla.hf.space/api?url=https%3A%2F%2F...&pa=1",
       "raw_url": "https://...",
       "elapsed_ms": 1204,
       "error": null
@@ -162,7 +162,7 @@ if res['error']:
       "s": 1,
       "e": 1,
       "ok": true,
-      "url": "/api?url=https%3A%2F%2F...&pb=1",
+      "url": "https://missourimonster-vyla.hf.space/api?url=https%3A%2F%2F...&pb=1",
       "raw_url": "https://...",
       "elapsed_ms": 980,
       "error": null
@@ -204,7 +204,7 @@ const BASE = 'https://missourimonster-vyla.hf.space';
 
 async function testAll(tmdbId, season, episode) {
   // First, get the current list of provider keys
-  const meta = await fetch(`${BASE}/api/sources`).then(r => r.json());
+  const meta = await fetch(`${BASE}/api?sources_meta`).then(r => r.json());
   const sourceKeys = meta.sources.map(s => s.key);
 
   const params = season && episode

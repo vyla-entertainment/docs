@@ -242,7 +242,7 @@ Emitted once per verified, working provider.
       Human-readable provider name.
     </ResponseField>
     <ResponseField name="url" type="string">
-      Fully-qualified, proxied HLS stream URL. Pass directly to `hls.loadSource()`.
+      Fully-qualified, proxied stream URL. For HLS sources, pass to `hls.loadSource()` — all M3U8 segment and key URIs are rewritten to route through the proxy. For MP4 sources, set as `video.src` directly. No base URL prepending needed.
     </ResponseField>
   </Expandable>
 </ResponseField>
@@ -268,6 +268,22 @@ Emitted once per verified, working provider.
 | `200` | SSE stream opened successfully |
 | `400` | Missing `id`, `season`, or `episode` parameter |
 | `500` | Server error before the stream could begin |
+
+<ResponseExample>
+```text 200
+data: {"type":"meta","meta":{"id":1396,"name":"Pilot","season_number":1,"episode_number":1,"air_date":"2008-01-20"},"subtitles":[{"label":"English","file":"https://sub.vdrk.site/v1/tv/1396/1/1/English.vtt","type":"vtt","source":"v1"}]}
+
+data: {"type":"source","source":{"source":"vidlink","label":"VidLink","url":"https://missourimonster-vyla.hf.space/api?url=https%3A%2F%2F...&vl=1"}}
+
+data: {"type":"source","source":{"source":"meowtv","label":"MeowTV","url":"https://missourimonster-vyla.hf.space/api?url=https%3A%2F%2F...&mt=1"}}
+
+data: {"type":"done","total":2}
+```
+
+```json 400
+{ "error": "missing parameters", "route": "/tv?id=:id&season=:s&episode=:e", "example": "/tv?id=1396&season=1&episode=1" }
+```
+</ResponseExample>
 
 ---
 

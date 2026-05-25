@@ -1,9 +1,29 @@
 ---
 title: Player Integrations
-description: Complete guides for integrating the API into HTML, React, Next.js, and more — with HLS.js, SSE streaming, source switching, subtitles, and error fallbacks.
+description: Complete integration guides for Vanilla JS, React, Next.js, Vue, and Android — with full HLS + MP4 support, SSE streaming, source switching, subtitles, and fallback queues.
 ---
 
-This guide covers everything from a minimal HTML player to a full-featured React component with real-time source streaming, switching, quality selection, and subtitle support.
+Every source URL from `/movie` and `/tv` is either an **HLS stream** (`.m3u8`) or an **MP4** file — your player code must handle both. HLS goes through HLS.js; MP4 sets `video.src` directly. The detection logic is the same everywhere.
+
+---
+
+## Source Type Detection
+
+This is the single utility everything below depends on. A URL is MP4 if the proxy path ends in `.mp4` or the upstream served a video content-type that isn't HLS.
+
+```typescript
+// lib/sourceType.ts
+export function isMp4(url: string): boolean {
+  // The proxy wraps the real URL as ?url=<encoded>
+  // Decode and inspect the inner URL for the file extension
+  try {
+    const inner = new URL(url).searchParams.get('url') ?? url;
+    return /\.mp4(\?|$)/i.test(inner) || /\.mkv(\?|$)/i.test(inner);
+  } catch {
+    return /\.mp4(\?|$)/i.test(url);
+  }
+}
+```
 
 ---
 
@@ -27,19 +47,21 @@ yarn add hls.js
 
 ## How the Stream Works
 
-`/movie` and `/tv` are **Server-Sent Events** — not JSON endpoints. Each response is a stream of `data:` lines. There are three event types:
+`/movie` and `/tv` are **Server-Sent Events** — not JSON. Each response is a live stream of `data:` lines. Three event types arrive in sequence:
 
 | Event | When | Contains |
 |-------|------|----------|
 | `meta` | Immediately, before any provider resolves | TMDB metadata + all subtitle tracks |
-| `source` | Once per working provider, as each resolves | Proxied HLS URL + provider label |
+| `source` | Once per working provider, as each resolves | Proxied URL (HLS **or** MP4) + provider label |
 | `done` | After all providers finish or time out | Total working source count |
 
-Start playback on the **first `source` event** — don't wait for `done`.
+Start playback on the **first `source` event** — don't wait for `done`. Queue every subsequent `source` as a fallback.
 
 ---
 
 ## Minimal HTML Player
+
+Zero dependencies beyond HLS.js. Handles both HLS and MP4 correctly.
 
 ```html
 <!DOCTYPE html>
@@ -55,6 +77,49 @@ Start playback on the **first `source` event** — don't wait for `done`.
     const BASE   = 'https://missourimonster-vyla.hf.space';
     const video  = document.getElementById('player');
     const status = document.getElementById('status');
+    let hlsInstance = null;
+
+    function isMp4(url) {
+      try {
+        const inner = new URL(url).searchParams.get('url') ?? url;
+        return /\.(mp4|mkv)(\?|$)/i.test(inner);
+      } catch { return /\.(mp4|mkv)(\?|$)/i.test(url); }
+    }
+
+    function attachSource(url, label) {
+      status.textContent = `Loading ${label}…`;
+      hlsInstance?.destroy();
+      hlsInstance = null;
+
+      if (isMp4(url)) {
+        // MP4 — set directly, no HLS.js needed
+        video.src = url;
+        video.play().catch(() => {});
+        status.textContent = `Playing ${label} (MP4)`;
+        return;
+      }
+
+      if (Hls.isSupported()) {
+        hlsInstance = new Hls();
+        hlsInstance.loadSource(url);
+        hlsInstance.attachMedia(video);
+        hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
+          video.play().catch(() => {});
+          status.textContent = `Playing ${label}`;
+        });
+        return;
+      }
+
+      // Safari native HLS
+      if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        video.src = url;
+        video.play().catch(() => {});
+        status.textContent = `Playing ${label}`;
+        return;
+      }
+
+      status.textContent = 'HLS not supported in this browser.';
+    }
 
     async function play(tmdbId) {
       const res     = await fetch(`${BASE}/movie?id=${tmdbId}`);
@@ -66,7 +131,6 @@ Start playback on the **first `source` event** — don't wait for `done`.
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split('\n');
         buffer = lines.pop();
@@ -77,16 +141,8 @@ Start playback on the **first `source` event** — don't wait for `done`.
 
           if (event.type === 'source' && !started) {
             started = true;
-            status.textContent = `Playing via ${event.source.label}`;
-
-            if (!Hls.isSupported()) { video.src = event.source.url; continue; }
-
-            const hls = new Hls();
-            hls.loadSource(event.source.url);
-            hls.attachMedia(video);
-            hls.on(Hls.Events.MANIFEST_PARSED, () => video.play());
+            attachSource(event.source.url, event.source.label);
           }
-
           if (event.type === 'done' && !started) {
             status.textContent = 'No sources available.';
           }
@@ -102,7 +158,9 @@ Start playback on the **first `source` event** — don't wait for `done`.
 
 ---
 
-## HTML Player with Source Switching + Subtitles
+## HTML Player — Full Featured
+
+Source switching, fallback queue, subtitle tracks, quality selector. All source types handled.
 
 ```html
 <!DOCTYPE html>
@@ -110,17 +168,27 @@ Start playback on the **first `source` event** — don't wait for `done`.
 <head>
   <script src="https://cdn.jsdelivr.net/npm/hls.js@latest/dist/hls.min.js"></script>
   <style>
-    body    { font-family: sans-serif; background: #111; color: #fff; padding: 1rem; }
-    video   { width: 100%; max-width: 900px; display: block; }
-    #sources { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem; }
-    button  { padding: 0.4rem 0.8rem; background: #333; color: #fff; border: none;
-              border-radius: 4px; cursor: pointer; }
-    button.active { background: #fff; color: #111; }
-    #status { margin-top: 0.5rem; font-size: 0.85rem; color: #aaa; }
+    * { box-sizing: border-box; }
+    body      { font-family: sans-serif; background: #0f0f0f; color: #fff; padding: 1rem; margin: 0; }
+    video     { width: 100%; max-width: 960px; display: block; background: #000; border-radius: 6px; }
+    #controls { max-width: 960px; margin-top: 0.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+    #sources  { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.4rem; max-width: 960px; }
+    button    { padding: 0.35rem 0.75rem; background: #1e1e1e; color: #ccc; border: 1px solid #333;
+                border-radius: 4px; cursor: pointer; font-size: 0.8rem; }
+    button:hover   { background: #2a2a2a; }
+    button.active  { background: #fff; color: #111; border-color: #fff; }
+    select    { background: #1e1e1e; color: #ccc; border: 1px solid #333; border-radius: 4px;
+                padding: 0.35rem 0.5rem; font-size: 0.8rem; }
+    #status   { font-size: 0.8rem; color: #666; margin-top: 0.4rem; max-width: 960px; }
+    .badge    { font-size: 0.65rem; background: #333; color: #aaa; padding: 1px 5px;
+                border-radius: 3px; margin-left: 4px; vertical-align: middle; }
   </style>
 </head>
 <body>
   <video id="player" controls></video>
+  <div id="controls">
+    <select id="quality" style="display:none"><option value="-1">Quality: Auto</option></select>
+  </div>
   <div id="sources"></div>
   <div id="status">Connecting…</div>
 
@@ -129,29 +197,123 @@ Start playback on the **first `source` event** — don't wait for `done`.
     const video     = document.getElementById('player');
     const statusEl  = document.getElementById('status');
     const sourcesEl = document.getElementById('sources');
-    let hls;
+    const qualitySel = document.getElementById('quality');
 
-    function switchSource(url, label) {
-      hls?.destroy();
-      hls = new Hls();
-      statusEl.textContent = `Loading ${label}…`;
-      hls.on(Hls.Events.MANIFEST_PARSED, () => { statusEl.textContent = `Playing: ${label}`; video.play(); });
-      hls.on(Hls.Events.ERROR, (_, err) => { if (err.fatal) statusEl.textContent = 'Source error — try another.'; });
-      hls.loadSource(url);
-      hls.attachMedia(video);
+    let hlsInstance = null;
+    let allSources  = [];
+    let activeUrl   = null;
+
+    function isMp4(url) {
+      try {
+        const inner = new URL(url).searchParams.get('url') ?? url;
+        return /\.(mp4|mkv)(\?|$)/i.test(inner);
+      } catch { return /\.(mp4|mkv)(\?|$)/i.test(url); }
     }
 
-    async function loadMovie(tmdbId) {
-      const res     = await fetch(`${BASE}/movie?id=${tmdbId}`);
+    function setActive(url) {
+      activeUrl = url;
+      sourcesEl.querySelectorAll('button').forEach(b => {
+        b.classList.toggle('active', b.dataset.url === url);
+      });
+    }
+
+    function switchSource(url, label) {
+      setActive(url);
+      statusEl.textContent = `Loading ${label}…`;
+      qualitySel.style.display = 'none';
+      qualitySel.innerHTML = '<option value="-1">Quality: Auto</option>';
+
+      hlsInstance?.destroy();
+      hlsInstance = null;
+
+      if (isMp4(url)) {
+        video.src = url;
+        video.play().catch(() => {});
+        statusEl.textContent = `Playing ${label} · MP4`;
+        return;
+      }
+
+      if (Hls.isSupported()) {
+        hlsInstance = new Hls({ startLevel: -1 });
+        hlsInstance.loadSource(url);
+        hlsInstance.attachMedia(video);
+
+        hlsInstance.on(Hls.Events.MANIFEST_PARSED, (_, data) => {
+          video.play().catch(() => {});
+          statusEl.textContent = `Playing ${label} · HLS`;
+
+          if (data.levels.length > 1) {
+            data.levels.forEach((level, i) => {
+              const opt = document.createElement('option');
+              opt.value = i;
+              opt.textContent = level.height ? `${level.height}p` : `Level ${i}`;
+              qualitySel.appendChild(opt);
+            });
+            qualitySel.style.display = '';
+          }
+        });
+
+        hlsInstance.on(Hls.Events.LEVEL_SWITCHED, (_, data) => {
+          qualitySel.value = hlsInstance.autoLevelEnabled ? '-1' : data.level;
+        });
+
+        hlsInstance.on(Hls.Events.ERROR, (_, err) => {
+          if (err.fatal) {
+            statusEl.textContent = `${label} failed — trying next…`;
+            tryFallback(url);
+          }
+        });
+        return;
+      }
+
+      if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        video.src = url;
+        video.play().catch(() => {});
+        statusEl.textContent = `Playing ${label} · HLS`;
+        return;
+      }
+
+      statusEl.textContent = 'HLS not supported — try a different browser.';
+    }
+
+    function tryFallback(failedUrl) {
+      const next = allSources.find(s => s.url !== failedUrl && s.url !== activeUrl);
+      if (next) switchSource(next.url, next.label);
+      else statusEl.textContent = 'All sources failed.';
+    }
+
+    function addSourceButton(source) {
+      allSources.push(source);
+      const { url, label } = source;
+      const btn = document.createElement('button');
+      btn.dataset.url = url;
+      btn.innerHTML = label + (isMp4(url) ? '<span class="badge">MP4</span>' : '<span class="badge">HLS</span>');
+      btn.onclick = () => switchSource(url, label);
+      sourcesEl.appendChild(btn);
+    }
+
+    qualitySel.onchange = () => {
+      if (hlsInstance) hlsInstance.currentLevel = parseInt(qualitySel.value);
+    };
+
+    async function loadContent(tmdbId, season, episode) {
+      const url = (season && episode)
+        ? `${BASE}/tv?id=${tmdbId}&season=${season}&episode=${episode}`
+        : `${BASE}/movie?id=${tmdbId}`;
+
+      allSources = [];
+      sourcesEl.innerHTML = '';
+      statusEl.textContent = 'Connecting…';
+      let started = false;
+
+      const res     = await fetch(url);
       const reader  = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer    = '';
-      let started   = false;
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split('\n');
         buffer = lines.pop();
@@ -161,8 +323,10 @@ Start playback on the **first `source` event** — don't wait for `done`.
           const event = JSON.parse(line.slice(6));
 
           if (event.type === 'meta') {
-            statusEl.textContent = `Loading ${event.meta?.title ?? ''}…`;
-            event.subtitles?.forEach((sub, i) => {
+            statusEl.textContent = `Loading ${event.meta?.title ?? event.meta?.name ?? ''}…`;
+            // Clear and reattach subtitle tracks
+            Array.from(video.querySelectorAll('track')).forEach(t => t.remove());
+            (event.subtitles ?? []).forEach((sub, i) => {
               const track = Object.assign(document.createElement('track'), {
                 kind: 'subtitles', label: sub.label, src: sub.file,
               });
@@ -172,18 +336,11 @@ Start playback on the **first `source` event** — don't wait for `done`.
           }
 
           if (event.type === 'source') {
-            const { url, label } = event.source;
-            const btn = document.createElement('button');
-            btn.textContent = label;
-            if (!started) btn.classList.add('active');
-            btn.onclick = () => {
-              sourcesEl.querySelectorAll('button').forEach(b => b.classList.remove('active'));
-              btn.classList.add('active');
-              switchSource(url, label);
-            };
-            sourcesEl.appendChild(btn);
-
-            if (!started) { started = true; switchSource(url, label); }
+            addSourceButton(event.source);
+            if (!started) {
+              started = true;
+              switchSource(event.source.url, event.source.label);
+            }
           }
 
           if (event.type === 'done' && !started) {
@@ -193,7 +350,11 @@ Start playback on the **first `source` event** — don't wait for `done`.
       }
     }
 
-    loadMovie(550);
+    // Usage: movie
+    loadContent(550);
+
+    // Usage: TV episode
+    // loadContent(1396, 1, 1);
   </script>
 </body>
 </html>
@@ -201,34 +362,11 @@ Start playback on the **first `source` event** — don't wait for `done`.
 
 ---
 
-## Quality Level Selection
+## React
 
-HLS.js exposes quality levels from the manifest. Present them to the user after the first source loads:
+### `useStream` Hook
 
-```javascript
-function setupQualitySelector(hls, selectEl) {
-  hls.on(Hls.Events.MANIFEST_PARSED, (_, data) => {
-    selectEl.innerHTML = '<option value="-1">Auto</option>';
-    data.levels.forEach((level, i) => {
-      const opt = document.createElement('option');
-      opt.value = i;
-      opt.textContent = `${level.height}p (${Math.round(level.bitrate / 1000)}kbps)`;
-      selectEl.appendChild(opt);
-    });
-    selectEl.onchange = () => { hls.currentLevel = parseInt(selectEl.value); };
-  });
-
-  hls.on(Hls.Events.LEVEL_SWITCHED, (_, data) => {
-    selectEl.value = hls.autoLevelEnabled ? '-1' : data.level;
-  });
-}
-```
-
----
-
-## React Hook
-
-A reusable hook that handles SSE streaming, source queuing, and error state:
+Handles SSE parsing, abort on unmount, and re-fetch on param change. Drop-in for any framework.
 
 ```typescript
 // hooks/useStream.ts
@@ -236,25 +374,33 @@ import { useState, useEffect, useRef } from 'react';
 
 const BASE = 'https://missourimonster-vyla.hf.space';
 
-interface Source   { source: string; label: string; url: string; }
-interface Subtitle { label: string; file: string; type: string; source: string; }
+export interface StreamSource {
+  source: string;
+  label:  string;
+  url:    string;
+}
 
-interface StreamState {
-  sources:   Source[];
-  subtitles: Subtitle[];
+export interface StreamSubtitle {
+  label:  string;
+  file:   string;
+  type:   string;
+  source: string;
+}
+
+export interface StreamState {
+  sources:   StreamSource[];
+  subtitles: StreamSubtitle[];
   meta:      Record<string, unknown> | null;
   loading:   boolean;
   done:      boolean;
   error:     string | null;
 }
 
-interface StreamParams {
-  tmdbId:   number | null;
-  season?:  number | null;
-  episode?: number | null;
-}
-
-export function useStream({ tmdbId, season, episode }: StreamParams): StreamState {
+export function useStream(
+  tmdbId:  number | null,
+  season?: number | null,
+  episode?: number | null,
+): StreamState {
   const [state, setState] = useState<StreamState>({
     sources: [], subtitles: [], meta: null, loading: false, done: false, error: null,
   });
@@ -283,7 +429,6 @@ export function useStream({ tmdbId, season, episode }: StreamParams): StreamStat
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
-
           buffer += decoder.decode(value, { stream: true });
           const lines = buffer.split('\n');
           buffer = lines.pop()!;
@@ -291,22 +436,17 @@ export function useStream({ tmdbId, season, episode }: StreamParams): StreamStat
           for (const line of lines) {
             if (!line.startsWith('data: ')) continue;
             const event = JSON.parse(line.slice(6));
-
-            if (event.type === 'meta') {
+            if (event.type === 'meta')
               setState(s => ({ ...s, meta: event.meta ?? null, subtitles: event.subtitles ?? [] }));
-            }
-            if (event.type === 'source') {
+            if (event.type === 'source')
               setState(s => ({ ...s, sources: [...s.sources, event.source] }));
-            }
-            if (event.type === 'done') {
+            if (event.type === 'done')
               setState(s => ({ ...s, loading: false, done: true }));
-            }
           }
         }
       } catch (err: any) {
-        if (err.name !== 'AbortError') {
+        if (err.name !== 'AbortError')
           setState(s => ({ ...s, loading: false, error: err.message }));
-        }
       }
     })();
 
@@ -317,185 +457,283 @@ export function useStream({ tmdbId, season, episode }: StreamParams): StreamStat
 }
 ```
 
----
+### `attachSource` Utility
 
-## React Player Component
+Centralises HLS vs MP4 detection so every component shares one path.
 
-A full-featured player using the hook above — starts on first source, queues the rest as fallbacks:
+```typescript
+// lib/attachSource.ts
+import Hls from 'hls.js';
+
+export function isMp4(url: string): boolean {
+  try {
+    const inner = new URL(url).searchParams.get('url') ?? url;
+    return /\.(mp4|mkv)(\?|$)/i.test(inner);
+  } catch { return /\.(mp4|mkv)(\?|$)/i.test(url); }
+}
+
+export interface AttachResult {
+  hls: Hls | null;
+  type: 'hls' | 'mp4' | 'native-hls';
+}
+
+export function attachSource(
+  videoEl:  HTMLVideoElement,
+  url:      string,
+  prevHls?: Hls | null,
+  onLevels?: (levels: Hls.Level[]) => void,
+  onError?:  () => void,
+): AttachResult {
+  prevHls?.destroy();
+
+  if (isMp4(url)) {
+    videoEl.src = url;
+    videoEl.play().catch(() => {});
+    return { hls: null, type: 'mp4' };
+  }
+
+  if (Hls.isSupported()) {
+    const hls = new Hls({ startLevel: -1 });
+    hls.loadSource(url);
+    hls.attachMedia(videoEl);
+    hls.on(Hls.Events.MANIFEST_PARSED, (_, data) => {
+      videoEl.play().catch(() => {});
+      onLevels?.(data.levels);
+    });
+    hls.on(Hls.Events.ERROR, (_, err) => {
+      if (err.fatal) onError?.();
+    });
+    return { hls, type: 'hls' };
+  }
+
+  if (videoEl.canPlayType('application/vnd.apple.mpegurl')) {
+    videoEl.src = url;
+    videoEl.play().catch(() => {});
+    return { hls: null, type: 'native-hls' };
+  }
+
+  return { hls: null, type: 'mp4' }; // last resort — let the browser try
+}
+```
+
+### `StreamPlayer` Component
+
+Full-featured player: auto-starts on first source, queues fallbacks, source switcher, quality selector, subtitle tracks. Works for movies and TV.
 
 ```tsx
 // components/StreamPlayer.tsx
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import Hls from 'hls.js';
-import { useStream } from '@/hooks/useStream';
+import { useStream, StreamSource } from '@/hooks/useStream';
+import { attachSource, isMp4 } from '@/lib/attachSource';
 
-interface StreamPlayerProps {
+interface Props {
   tmdbId:   number;
   season?:  number;
   episode?: number;
 }
 
-export function StreamPlayer({ tmdbId, season, episode }: StreamPlayerProps) {
-  const videoRef   = useRef<HTMLVideoElement>(null);
-  const hlsRef     = useRef<Hls | null>(null);
-  const queueRef   = useRef<string[]>([]);
-  const startedRef = useRef(false);
+export function StreamPlayer({ tmdbId, season, episode }: Props) {
+  const videoRef    = useRef<HTMLVideoElement>(null);
+  const hlsRef      = useRef<Hls | null>(null);
+  const queueRef    = useRef<StreamSource[]>([]);
+  const startedRef  = useRef(false);
+  const activeRef   = useRef<string>('');
 
-  const { sources, subtitles, meta, loading, done, error } = useStream({ tmdbId, season, episode });
-  const [activeLabel, setActiveLabel] = useState<string>('');
-  const [levels, setLevels] = useState<Hls.Level[]>([]);
-  const [level, setLevel]   = useState(-1);
+  const { sources, subtitles, meta, loading, done, error } = useStream(tmdbId, season, episode);
+  const [activeSource, setActiveSource] = useState<string>('');
+  const [levels, setLevels]             = useState<Hls.Level[]>([]);
+  const [quality, setQuality]           = useState(-1);
+  const [status, setStatus]             = useState('Connecting…');
 
-  function playUrl(url: string, label: string) {
+  // Reset when content changes
+  useEffect(() => {
+    startedRef.current = false;
+    queueRef.current   = [];
+    activeRef.current  = '';
+    setActiveSource('');
+    setLevels([]);
+    setQuality(-1);
+    setStatus('Connecting…');
+  }, [tmdbId, season, episode]);
+
+  function playSource(src: StreamSource) {
     if (!videoRef.current) return;
-    hlsRef.current?.destroy();
+    activeRef.current = src.url;
+    setActiveSource(src.source);
+    setLevels([]);
+    setQuality(-1);
+    setStatus(`Loading ${src.label}…`);
 
-    if (!Hls.isSupported()) { videoRef.current.src = url; return; }
+    const { hls } = attachSource(
+      videoRef.current,
+      src.url,
+      hlsRef.current,
+      (newLevels) => {
+        setLevels(newLevels);
+        setStatus(`Playing via ${src.label}${isMp4(src.url) ? ' · MP4' : ' · HLS'}`);
+      },
+      () => {
+        // Fatal HLS error — try next in queue
+        const next = queueRef.current.shift();
+        if (next) playSource(next);
+        else setStatus('All sources failed.');
+      },
+    );
 
-    const hls = new Hls();
     hlsRef.current = hls;
 
-    hls.on(Hls.Events.MANIFEST_PARSED, (_, data) => {
-      setLevels(data.levels);
-      setActiveLabel(label);
-      videoRef.current?.play().catch(() => {});
-    });
-
-    hls.on(Hls.Events.ERROR, (_, err) => {
-      if (err.fatal) {
-        const next = queueRef.current.shift();
-        if (next) playUrl(next, '');
-      }
-    });
-
-    hls.loadSource(url);
-    hls.attachMedia(videoRef.current);
+    if (isMp4(src.url))
+      setStatus(`Playing via ${src.label} · MP4`);
   }
 
-  // Start on first source, queue the rest
+  // Start on first source, queue the rest as fallbacks
   useEffect(() => {
     if (!sources.length) return;
     const latest = sources[sources.length - 1];
-    queueRef.current.push(latest.url);
     if (!startedRef.current) {
       startedRef.current = true;
-      queueRef.current.shift();
-      playUrl(latest.url, latest.label);
+      playSource(latest);
+    } else {
+      queueRef.current.push(latest);
     }
   }, [sources]);
 
-  // Sync quality level
+  // Sync quality level to HLS.js
   useEffect(() => {
-    if (hlsRef.current) hlsRef.current.currentLevel = level;
-  }, [level]);
+    if (hlsRef.current) hlsRef.current.currentLevel = quality;
+  }, [quality]);
 
-  if (error) return <div>Error: {error}</div>;
+  // Cleanup on unmount
+  useEffect(() => () => { hlsRef.current?.destroy(); }, []);
+
+  if (error) return (
+    <div style={{ padding: '1rem', color: '#f87171' }}>
+      Stream error: {error}
+    </div>
+  );
 
   return (
-    <div>
-      {loading && !sources.length && <div>Connecting to providers…</div>}
-
-      <video ref={videoRef} controls style={{ width: '100%' }}>
+    <div style={{ width: '100%' }}>
+      {/* Video element */}
+      <video
+        ref={videoRef}
+        controls
+        style={{ width: '100%', background: '#000', display: 'block', borderRadius: 6 }}
+      >
         {subtitles.map(sub => (
-          <track key={sub.label + sub.source} kind="subtitles" label={sub.label} src={sub.file} />
+          <track
+            key={`${sub.label}-${sub.source}`}
+            kind="subtitles"
+            label={sub.label}
+            src={sub.file}
+            srcLang={sub.label.slice(0, 2).toLowerCase()}
+          />
         ))}
       </video>
 
-      {activeLabel && <p style={{ fontSize: '0.8rem', color: '#aaa' }}>Playing via {activeLabel}</p>}
+      {/* Status bar */}
+      <div style={{ fontSize: '0.75rem', color: '#666', marginTop: 4 }}>
+        {loading && !sources.length ? 'Connecting to providers…' : status}
+        {done && ` · ${sources.length} source${sources.length !== 1 ? 's' : ''} found`}
+      </div>
 
-      {/* Source selector — populated as sources stream in */}
-      {sources.length > 1 && (
-        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
-          {sources.map(src => (
+      {/* Controls row */}
+      {(sources.length > 0 || levels.length > 1) && (
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.5rem', alignItems: 'center' }}>
+          {/* Quality selector — only shown for HLS with multiple levels */}
+          {levels.length > 1 && (
+            <select
+              value={quality}
+              onChange={e => setQuality(Number(e.target.value))}
+              style={{ fontSize: '0.8rem', padding: '0.3rem 0.5rem', borderRadius: 4,
+                       background: '#1e1e1e', color: '#ccc', border: '1px solid #333' }}
+            >
+              <option value={-1}>Quality: Auto</option>
+              {levels.map((l, i) => (
+                <option key={i} value={i}>
+                  {l.height ? `${l.height}p` : `Level ${i}`}
+                </option>
+              ))}
+            </select>
+          )}
+
+          {/* Source switcher */}
+          {sources.length > 1 && sources.map(src => (
             <button
               key={src.source}
-              onClick={() => playUrl(src.url, src.label)}
-              style={{ fontWeight: src.label === activeLabel ? 'bold' : 'normal' }}
+              onClick={() => playSource(src)}
+              style={{
+                fontSize: '0.75rem', padding: '0.3rem 0.65rem', borderRadius: 4, cursor: 'pointer',
+                background: activeSource === src.source ? '#fff' : '#1e1e1e',
+                color:      activeSource === src.source ? '#111' : '#aaa',
+                border:     `1px solid ${activeSource === src.source ? '#fff' : '#333'}`,
+              }}
             >
               {src.label}
+              <span style={{ fontSize: '0.6rem', marginLeft: 4, opacity: 0.6 }}>
+                {isMp4(src.url) ? 'MP4' : 'HLS'}
+              </span>
             </button>
           ))}
         </div>
       )}
-
-      {/* Quality selector */}
-      {levels.length > 0 && (
-        <select value={level} onChange={e => setLevel(Number(e.target.value))}>
-          <option value={-1}>Auto</option>
-          {levels.map((l, i) => (
-            <option key={i} value={i}>{l.height}p</option>
-          ))}
-        </select>
-      )}
-
-      {done && <p style={{ fontSize: '0.75rem', color: '#666' }}>{sources.length} sources loaded</p>}
     </div>
   );
 }
 ```
 
----
+### Episode Selector
 
-## Next.js App Router Page
-
-```typescript
-// app/movie/[id]/page.tsx
-import { Suspense } from 'react';
-import { StreamPlayer } from '@/components/StreamPlayer';
-
-export default async function MoviePage({ params }: { params: { id: string } }) {
-  return (
-    <main style={{ maxWidth: 960, margin: '0 auto', padding: '1rem' }}>
-      <Suspense fallback={<div style={{ aspectRatio: '16/9', background: '#111' }} />}>
-        <StreamPlayer tmdbId={Number(params.id)} />
-      </Suspense>
-    </main>
-  );
-}
-```
-
----
-
-## Lazy Episode Loading (React)
-
-Don't open a stream until the user picks an episode:
+Renders an episode list and mounts the player only when an episode is selected — no streams open until the user picks something.
 
 ```tsx
+// components/EpisodeSelector.tsx
 'use client';
 import { useState } from 'react';
-import { StreamPlayer } from '@/components/StreamPlayer';
+import { StreamPlayer } from './StreamPlayer';
 
-interface Episode { episode_number: number; name: string; }
+interface Episode {
+  episode_number: number;
+  name: string;
+}
 
-export function EpisodeList({
-  seriesId, season, episodes,
-}: {
+interface Props {
   seriesId: number;
-  season: number;
+  season:   number;
   episodes: Episode[];
-}) {
-  const [selectedEp, setSelectedEp] = useState<number | null>(null);
+}
+
+export function EpisodeSelector({ seriesId, season, episodes }: Props) {
+  const [selected, setSelected] = useState<number | null>(null);
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 3fr', gap: '1rem' }}>
-      <aside>
+    <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr', gap: '1rem' }}>
+      <aside style={{ overflowY: 'auto', maxHeight: 480, borderRight: '1px solid #222', paddingRight: '0.75rem' }}>
         {episodes.map(ep => (
           <button
             key={ep.episode_number}
-            onClick={() => setSelectedEp(ep.episode_number)}
-            style={{ display: 'block', width: '100%', textAlign: 'left',
-                     padding: '0.5rem', fontWeight: selectedEp === ep.episode_number ? 'bold' : 'normal' }}
+            onClick={() => setSelected(ep.episode_number)}
+            style={{
+              display: 'block', width: '100%', textAlign: 'left',
+              padding: '0.5rem 0.6rem', marginBottom: 2, borderRadius: 4, cursor: 'pointer',
+              background: selected === ep.episode_number ? '#fff' : 'transparent',
+              color:      selected === ep.episode_number ? '#111' : '#aaa',
+              border: 'none', fontSize: '0.82rem',
+            }}
           >
-            E{ep.episode_number} — {ep.name}
+            <span style={{ opacity: 0.5, marginRight: 6 }}>E{ep.episode_number}</span>
+            {ep.name}
           </button>
         ))}
       </aside>
+
       <section>
-        {!selectedEp && <p>Select an episode to watch</p>}
-        {selectedEp && (
-          <StreamPlayer tmdbId={seriesId} season={season} episode={selectedEp} />
-        )}
+        {selected === null
+          ? <div style={{ color: '#555', paddingTop: '2rem' }}>Select an episode to watch</div>
+          : <StreamPlayer tmdbId={seriesId} season={season} episode={selected} />
+        }
       </section>
     </div>
   );
@@ -504,46 +742,441 @@ export function EpisodeList({
 
 ---
 
-## Safari / iOS
+## Next.js App Router
 
-Safari has native HLS support. Detect and handle both paths — the SSE streaming logic is the same; only the player attachment changes:
+### Movie Page
 
-```javascript
-function attachHls(videoEl, sourceUrl) {
-  if (Hls.isSupported()) {
-    const hls = new Hls();
-    hls.loadSource(sourceUrl);
-    hls.attachMedia(videoEl);
-    return hls;
-  }
+```tsx
+// app/movie/[id]/page.tsx
+import { StreamPlayer } from '@/components/StreamPlayer';
 
-  if (videoEl.canPlayType('application/vnd.apple.mpegurl')) {
-    videoEl.src = sourceUrl;
-    return null;
-  }
-
-  throw new Error('HLS not supported in this browser');
+export default function MoviePage({ params }: { params: { id: string } }) {
+  return (
+    <main style={{ maxWidth: 960, margin: '0 auto', padding: '1.5rem 1rem' }}>
+      <StreamPlayer tmdbId={Number(params.id)} />
+    </main>
+  );
 }
+```
+
+### TV Episode Page
+
+```tsx
+// app/tv/[id]/[season]/[episode]/page.tsx
+import { StreamPlayer } from '@/components/StreamPlayer';
+
+export default function EpisodePage({
+  params,
+}: {
+  params: { id: string; season: string; episode: string };
+}) {
+  return (
+    <main style={{ maxWidth: 960, margin: '0 auto', padding: '1.5rem 1rem' }}>
+      <StreamPlayer
+        tmdbId={Number(params.id)}
+        season={Number(params.season)}
+        episode={Number(params.episode)}
+      />
+    </main>
+  );
+}
+```
+
+### Dynamic HLS.js Import (SSR-safe)
+
+HLS.js accesses `window` and will crash during SSR. Either mark the component `'use client'` (already done above) or use a dynamic import to exclude it from the server bundle entirely:
+
+```tsx
+// If you need to import StreamPlayer in a server component:
+import dynamic from 'next/dynamic';
+
+const StreamPlayer = dynamic(
+  () => import('@/components/StreamPlayer').then(m => m.StreamPlayer),
+  { ssr: false, loading: () => <div style={{ aspectRatio: '16/9', background: '#111', borderRadius: 6 }} /> }
+);
+```
+
+<Warning>
+  Never import `hls.js` at the top level of a file that can run on the server. Always use `'use client'` or a dynamic import with `ssr: false`.
+</Warning>
+
+---
+
+## Vue 3
+
+```vue
+<!-- components/StreamPlayer.vue -->
+<template>
+  <div>
+    <video ref="videoEl" controls style="width:100%; background:#000; border-radius:6px; display:block">
+      <track
+        v-for="sub in subtitles"
+        :key="sub.label + sub.source"
+        kind="subtitles"
+        :label="sub.label"
+        :src="sub.file"
+      />
+    </video>
+
+    <div style="font-size:0.75rem; color:#666; margin-top:4px">{{ status }}</div>
+
+    <div v-if="sources.length > 1" style="display:flex; gap:0.4rem; flex-wrap:wrap; margin-top:0.5rem">
+      <button
+        v-for="src in sources"
+        :key="src.source"
+        @click="playSource(src)"
+        :style="{
+          fontSize: '0.75rem', padding: '0.3rem 0.65rem', borderRadius: '4px', cursor: 'pointer',
+          background: activeSource === src.source ? '#fff' : '#1e1e1e',
+          color:      activeSource === src.source ? '#111' : '#aaa',
+          border:    `1px solid ${activeSource === src.source ? '#fff' : '#333'}`,
+        }"
+      >
+        {{ src.label }}
+        <span style="font-size:0.6rem; margin-left:4px; opacity:0.6">
+          {{ isMp4(src.url) ? 'MP4' : 'HLS' }}
+        </span>
+      </button>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, watch, onUnmounted } from 'vue';
+import Hls from 'hls.js';
+
+const props = defineProps<{
+  tmdbId:   number;
+  season?:  number;
+  episode?: number;
+}>();
+
+const BASE = 'https://missourimonster-vyla.hf.space';
+
+interface Source   { source: string; label: string; url: string; }
+interface Subtitle { label: string; file: string; type: string; source: string; }
+
+const videoEl     = ref<HTMLVideoElement | null>(null);
+const sources     = ref<Source[]>([]);
+const subtitles   = ref<Subtitle[]>([]);
+const status      = ref('Connecting…');
+const activeSource = ref('');
+
+let hlsInstance: Hls | null = null;
+let abortController: AbortController | null = null;
+let started = false;
+let queue: Source[] = [];
+
+function isMp4(url: string): boolean {
+  try {
+    const inner = new URL(url).searchParams.get('url') ?? url;
+    return /\.(mp4|mkv)(\?|$)/i.test(inner);
+  } catch { return /\.(mp4|mkv)(\?|$)/i.test(url); }
+}
+
+function playSource(src: Source) {
+  if (!videoEl.value) return;
+  hlsInstance?.destroy();
+  hlsInstance = null;
+  activeSource.value = src.source;
+
+  if (isMp4(src.url)) {
+    videoEl.value.src = src.url;
+    videoEl.value.play().catch(() => {});
+    status.value = `Playing ${src.label} · MP4`;
+    return;
+  }
+
+  if (Hls.isSupported()) {
+    hlsInstance = new Hls({ startLevel: -1 });
+    hlsInstance.loadSource(src.url);
+    hlsInstance.attachMedia(videoEl.value);
+    hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
+      videoEl.value?.play().catch(() => {});
+      status.value = `Playing ${src.label} · HLS`;
+    });
+    hlsInstance.on(Hls.Events.ERROR, (_, err) => {
+      if (err.fatal) {
+        const next = queue.shift();
+        if (next) playSource(next);
+        else status.value = 'All sources failed.';
+      }
+    });
+    return;
+  }
+
+  if (videoEl.value.canPlayType('application/vnd.apple.mpegurl')) {
+    videoEl.value.src = src.url;
+    videoEl.value.play().catch(() => {});
+    status.value = `Playing ${src.label} · HLS`;
+  }
+}
+
+async function loadStream() {
+  abortController?.abort();
+  abortController = new AbortController();
+  sources.value   = [];
+  subtitles.value = [];
+  status.value    = 'Connecting…';
+  started         = false;
+  queue           = [];
+
+  const url = props.season && props.episode
+    ? `${BASE}/tv?id=${props.tmdbId}&season=${props.season}&episode=${props.episode}`
+    : `${BASE}/movie?id=${props.tmdbId}`;
+
+  try {
+    const res     = await fetch(url, { signal: abortController.signal });
+    const reader  = res.body!.getReader();
+    const decoder = new TextDecoder();
+    let buffer    = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop()!;
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const event = JSON.parse(line.slice(6));
+
+        if (event.type === 'meta') {
+          subtitles.value = event.subtitles ?? [];
+          status.value = `Loading ${event.meta?.title ?? event.meta?.name ?? ''}…`;
+        }
+        if (event.type === 'source') {
+          sources.value = [...sources.value, event.source];
+          if (!started) { started = true; playSource(event.source); }
+          else queue.push(event.source);
+        }
+        if (event.type === 'done' && !started) {
+          status.value = 'No sources available.';
+        }
+      }
+    }
+  } catch (err: any) {
+    if (err.name !== 'AbortError') status.value = `Error: ${err.message}`;
+  }
+}
+
+watch(() => [props.tmdbId, props.season, props.episode], loadStream, { immediate: true });
+onUnmounted(() => { hlsInstance?.destroy(); abortController?.abort(); });
+</script>
 ```
 
 ---
 
-## SSR Considerations
+## Android (Kotlin + ExoPlayer)
 
-<Warning>
-  HLS.js must run **client-side only**. Never import it in server components or run it during SSR — it accesses `window` and `document`.
+ExoPlayer handles both HLS and MP4 natively — just pass the URL and it auto-detects the type.
 
-  In Next.js App Router, always add `'use client'` to components that use HLS.js. Use dynamic `import('hls.js')` inside `useEffect` to keep it out of your SSR bundle entirely.
-</Warning>
+```kotlin
+// StreamActivity.kt
+import androidx.media3.common.MediaItem
+import androidx.media3.exoplayer.ExoPlayer
+import kotlinx.coroutines.*
+import org.json.JSONObject
+import java.io.BufferedReader
+import java.io.InputStreamReader
+import java.net.URL
 
-```tsx
-// ✅ Correct — dynamic import in useEffect
-useEffect(() => {
-  import('hls.js').then(({ default: Hls }) => {
-    // Safe to use Hls here
-  });
-}, []);
+class StreamActivity : AppCompatActivity() {
 
-// ❌ Wrong — top-level import in a component that may SSR
-import Hls from 'hls.js'; // will crash on server
+    private val BASE = "https://missourimonster-vyla.hf.space"
+    private lateinit var player: ExoPlayer
+    private val scope = CoroutineScope(Dispatchers.Main + Job())
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        player = ExoPlayer.Builder(this).build()
+        binding.playerView.player = player
+
+        val tmdbId = intent.getIntExtra("tmdb_id", 550)
+        loadStream(tmdbId)
+    }
+
+    private fun loadStream(tmdbId: Int, season: Int? = null, episode: Int? = null) {
+        scope.launch {
+            val url = if (season != null && episode != null)
+                "$BASE/tv?id=$tmdbId&season=$season&episode=$episode"
+            else
+                "$BASE/movie?id=$tmdbId"
+
+            withContext(Dispatchers.IO) {
+                val conn = URL(url).openConnection()
+                val reader = BufferedReader(InputStreamReader(conn.inputStream))
+
+                reader.forEachLine { line ->
+                    if (!line.startsWith("data: ")) return@forEachLine
+                    val json = JSONObject(line.substring(6))
+
+                    when (json.getString("type")) {
+                        "source" -> {
+                            val source = json.getJSONObject("source")
+                            val streamUrl = source.getString("url")
+
+                            // ExoPlayer auto-detects HLS vs MP4 from the URL and Content-Type
+                            withContext(Dispatchers.Main) {
+                                if (!player.isPlaying) {
+                                    player.setMediaItem(MediaItem.fromUri(streamUrl))
+                                    player.prepare()
+                                    player.play()
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        scope.cancel()
+        player.release()
+    }
+}
+```
+
+<Tip>
+  ExoPlayer resolves HLS and MP4 automatically from the `Content-Type` returned by the proxy. No manual type detection needed on Android.
+</Tip>
+
+---
+
+## iOS (Swift + AVPlayer)
+
+AVPlayer handles both HLS and MP4 natively. Same SSE parsing, different player attachment.
+
+```swift
+// StreamViewController.swift
+import UIKit
+import AVKit
+
+class StreamViewController: UIViewController {
+
+    let BASE = "https://missourimonster-vyla.hf.space"
+    var player: AVPlayer?
+    var playerLayer: AVPlayerLayer?
+    var streamTask: URLSessionDataTask?
+    var started = false
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        loadStream(tmdbId: 550)
+    }
+
+    func loadStream(tmdbId: Int, season: Int? = nil, episode: Int? = nil) {
+        let path: String
+        if let s = season, let e = episode {
+            path = "\(BASE)/tv?id=\(tmdbId)&season=\(s)&episode=\(e)"
+        } else {
+            path = "\(BASE)/movie?id=\(tmdbId)"
+        }
+
+        guard let url = URL(string: path) else { return }
+
+        // SSE via URLSession data delegate
+        class SSEDelegate: NSObject, URLSessionDataDelegate {
+            var buffer = ""
+            var onSource: (String) -> Void
+
+            init(_ onSource: @escaping (String) -> Void) { self.onSource = onSource }
+
+            func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
+                guard let text = String(data: data, encoding: .utf8) else { return }
+                buffer += text
+                while let range = buffer.range(of: "\n") {
+                    let line = String(buffer[..<range.lowerBound])
+                    buffer.removeSubrange(..<range.upperBound)
+                    guard line.hasPrefix("data: "),
+                          let jsonData = line.dropFirst(6).data(using: .utf8),
+                          let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any],
+                          let type = json["type"] as? String else { continue }
+                    if type == "source",
+                       let source = json["source"] as? [String: Any],
+                       let streamUrl = source["url"] as? String {
+                        onSource(streamUrl)
+                    }
+                }
+            }
+        }
+
+        let delegate = SSEDelegate { [weak self] streamUrl in
+            guard let self, !self.started else { return }
+            self.started = true
+            DispatchQueue.main.async {
+                // AVPlayer handles HLS and MP4 automatically
+                guard let url = URL(string: streamUrl) else { return }
+                let player = AVPlayer(url: url)
+                self.player = player
+                let layer = AVPlayerLayer(player: player)
+                layer.frame = self.view.bounds
+                layer.videoGravity = .resizeAspect
+                self.view.layer.addSublayer(layer)
+                self.playerLayer = layer
+                player.play()
+            }
+        }
+
+        let session = URLSession(configuration: .default, delegate: delegate, delegateQueue: nil)
+        streamTask = session.dataTask(with: url)
+        streamTask?.resume()
+    }
+
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        streamTask?.cancel()
+        player?.pause()
+    }
+}
+```
+
+<Tip>
+  AVPlayer resolves HLS via `application/vnd.apple.mpegurl` and MP4 via `video/mp4` content-type returned by the proxy — no manual detection needed on iOS either.
+</Tip>
+
+---
+
+## Python (mpv)
+
+For desktop apps or scripts. `mpv` handles HLS and MP4 natively via its own demuxer.
+
+```python
+import requests
+import json
+import subprocess
+
+BASE = 'https://missourimonster-vyla.hf.space'
+
+def stream(tmdb_id: int, season: int = None, episode: int = None):
+    url = (
+        f'{BASE}/tv?id={tmdb_id}&season={season}&episode={episode}'
+        if season and episode else
+        f'{BASE}/movie?id={tmdb_id}'
+    )
+
+    with requests.get(url, stream=True) as res:
+        for line in res.iter_lines():
+            if not line or not line.startswith(b'data: '):
+                continue
+
+            event = json.loads(line[6:])
+
+            if event['type'] == 'source':
+                stream_url = event['source']['url']
+                label      = event['source']['label']
+                print(f'Playing via {label}: {stream_url}')
+                # mpv handles HLS and MP4 automatically
+                subprocess.run(['mpv', stream_url])
+                return  # play first working source
+
+            if event['type'] == 'done' and not any(True for _ in []):
+                print('No sources available.')
+
+stream(550)
+# stream(1396, season=1, episode=1)
 ```

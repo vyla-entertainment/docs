@@ -8,7 +8,7 @@ Opens a Server-Sent Events connection and queries all configured providers in pa
 
 The `meta` event fires first with TMDB metadata and subtitles. Each working source arrives as its own `source` event. A final `done` event closes the stream.
 
-Every `url` in a `source` event is fully qualified and already routed through the HLS proxy with M3U8 segment paths rewritten — pass it directly to `hls.loadSource()`.
+Every `url` in a `source` event is fully qualified and already routed through the proxy. HLS sources have M3U8 segment paths rewritten — pass to `hls.loadSource()`. MP4 sources can be set directly as `video.src`.
 
 ---
 
@@ -205,7 +205,7 @@ Emitted once per verified, working provider.
       Human-readable provider name.
     </ResponseField>
     <ResponseField name="url" type="string">
-      Fully-qualified, proxied HLS stream URL. Pass directly to `hls.loadSource()`. All M3U8 segment and encryption key URIs are rewritten to route through the proxy.
+      Fully-qualified, proxied stream URL. For HLS sources, pass to `hls.loadSource()` — all M3U8 segment and encryption key URIs are rewritten to route through the proxy. For MP4 sources, set as `video.src` directly. No base URL prepending needed.
     </ResponseField>
   </Expandable>
 </ResponseField>
@@ -229,7 +229,7 @@ Emitted when all providers have resolved or timed out.
 ## Example SSE Stream
 
 ```
-data: {"type":"meta","meta":{"id":550,"title":"Fight Club","release_date":"1999-10-15","runtime":139},"subtitles":[{"label":"English","file":"https://cache.vdrk.site/v1/vtt/movie/550/English.vtt","type":"vtt","source":"v1"}]}
+data: {"type":"meta","meta":{"id":550,"title":"Fight Club","release_date":"1999-10-15","runtime":139},"subtitles":[{"label":"English","file":"https://sub.vdrk.site/v1/vtt/movie/550/English.vtt","type":"vtt","source":"v1"}]}
 
 data: {"type":"source","source":{"source":"provider-a","label":"Provider A","url":"https://missourimonster-vyla.hf.space/api?url=...&pa=1"}}
 
@@ -251,6 +251,22 @@ data: {"type":"done","total":2}
 <Note>
   There is no `502` at the HTTP level for movies. If all providers fail, the stream will emit zero `source` events and then a `done` event with `total: 0`. Always check that you received at least one `source` event before attempting playback.
 </Note>
+
+<ResponseExample>
+```text 200
+data: {"type":"meta","meta":{"id":550,"title":"Fight Club","release_date":"1999-10-15","runtime":139},"subtitles":[{"label":"English","file":"https://sub.vdrk.site/v1/movie/550/English.vtt","type":"vtt","source":"v1"}]}
+
+data: {"type":"source","source":{"source":"vidlink","label":"VidLink","url":"https://missourimonster-vyla.hf.space/api?url=https%3A%2F%2F...&vl=1"}}
+
+data: {"type":"source","source":{"source":"meowtv","label":"MeowTV","url":"https://missourimonster-vyla.hf.space/api?url=https%3A%2F%2F...&mt=1"}}
+
+data: {"type":"done","total":2}
+```
+
+```json 400
+{ "error": "missing id", "route": "/movie?id=:tmdb_id", "example": "/movie?id=155" }
+```
+</ResponseExample>
 
 ---
 

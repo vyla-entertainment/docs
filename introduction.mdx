@@ -117,7 +117,7 @@ Emitted immediately, before any provider resolves. Contains TMDB metadata and al
   "subtitles": [
     {
       "label": "English",
-      "file": "https://cache.vdrk.site/v1/vtt/movie/550/English.vtt",
+      "file": "https://sub.vdrk.site/v1/vtt/movie/550/English.vtt",
       "type": "vtt",
       "source": "v1"
     }
@@ -176,7 +176,7 @@ Returned inside `source` events on movie and TV streams.
 </ResponseField>
 
 <ResponseField name="url" type="string">
-  Fully-qualified, proxied, CORS-safe HLS stream URL. Pass directly to `hls.loadSource()` — no base URL prepending needed. All M3U8 segment and key URIs are pre-rewritten to flow through the proxy.
+  Fully-qualified, proxied, CORS-safe stream URL. For HLS sources, pass directly to `hls.loadSource()` — all M3U8 segment and key URIs are pre-rewritten to flow through the proxy. For MP4 sources, set as `video.src` directly. No base URL prepending needed in either case.
 </ResponseField>
 
 ---
@@ -188,7 +188,7 @@ Returned inside the `subtitles` array of the `meta` event, and as the top-level 
 ```json
 {
   "label": "English",
-  "file": "https://cache.vdrk.site/v1/vtt/movie/550/English.vtt",
+  "file": "https://sub.vdrk.site/v1/vtt/movie/550/English.vtt",
   "type": "vtt",
   "source": "v1"
 }
@@ -245,7 +245,7 @@ Returned inside `downloads[]` on the `/downloads` endpoint.
 
 ## Caching
 
-Stream results are cached in-memory with a **5-minute TTL**, keyed by `source + tmdb_id + season + episode`. Cache hits skip the provider fetch entirely and return near-instantly. The cache resets on server restart.
+Stream results are cached in-memory with a **5-minute TTL**. The per-source stream cache is keyed by `source_key + tmdb_id + season + episode`; the aggregate source-results cache is keyed by `tmdb_id + season + episode + base`. Cache hits skip the provider fetch entirely and return near-instantly. The cache resets on server restart.
 
 ---
 

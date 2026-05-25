@@ -32,7 +32,7 @@ curl -N "https://missourimonster-vyla.hf.space/tv?id=1396&season=1&episode=1"
 
 <Accordion title="Example SSE stream output">
 ```
-data: {"type":"meta","meta":{"id":550,"title":"Fight Club","release_date":"1999-10-15","runtime":139},"subtitles":[{"label":"English","file":"https://cache.vdrk.site/v1/vtt/movie/550/English.vtt","type":"vtt","source":"v1"},{"label":"Spanish","file":"https://cache.vdrk.site/v1/vtt/movie/550/Spanish.vtt","type":"vtt","source":"v1"}]}
+data: {"type":"meta","meta":{"id":550,"title":"Fight Club","release_date":"1999-10-15","runtime":139},"subtitles":[{"label":"English","file":"https://sub.vdrk.site/v1/vtt/movie/550/English.vtt","type":"vtt","source":"v1"},{"label":"Spanish","file":"https://sub.vdrk.site/v1/vtt/movie/550/Spanish.vtt","type":"vtt","source":"v1"}]}
 
 data: {"type":"source","source":{"source":"provider-a","label":"Provider A","url":"https://missourimonster-vyla.hf.space/api?url=...&pa=1"}}
 
@@ -388,7 +388,7 @@ if (event.type === 'meta') {
 
 // Or fetch subtitles standalone (no streaming needed):
 const subtitles = await fetch(
-  'https://missourimonster-vyla.hf.space/subtitles?type=movie&id=550'
+  'https://missourimonster-vyla.hf.space/subtitles/movie/550'
 ).then(r => r.json());
 ```
 
@@ -426,7 +426,7 @@ curl https://missourimonster-vyla.hf.space/health
 Use `/test` to isolate a specific provider without running the full fanout:
 
 ```bash
-curl "https://missourimonster-vyla.hf.space/test?id=550&source=<provider-key>"
+curl "https://missourimonster-vyla.hf.space/test/550?source=<provider-key>"
 ```
 
 <Tip>

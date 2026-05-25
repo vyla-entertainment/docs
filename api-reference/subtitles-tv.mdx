@@ -145,31 +145,56 @@ async function loadEpisode(
   episode: number,
   videoEl: HTMLVideoElement
 ) {
-  // Fetch sources and subtitles in one call
-  const data = await fetch(
-    `${BASE}/api/tv?id=${seriesId}&season=${season}&episode=${episode}`
-  ).then(r => r.json());
-
-  if (!data.sources.length) throw new Error('No sources available');
-
   // Remove existing subtitle tracks
   Array.from(videoEl.querySelectorAll('track')).forEach(t => t.remove());
 
-  // Attach new subtitle tracks
-  data.subtitles.forEach((sub: { label: string; file: string }, i: number) => {
-    const track = document.createElement('track');
-    track.kind    = 'subtitles';
-    track.label   = sub.label;
-    track.src     = sub.file;
-    track.default = i === 0;
-    videoEl.appendChild(track);
-  });
+  // /tv is an SSE stream — must be consumed line by line
+  const res     = await fetch(`${BASE}/tv?id=${seriesId}&season=${season}&episode=${episode}`);
+  const reader  = res.body!.getReader();
+  const decoder = new TextDecoder();
+  let buffer    = '';
+  let started   = false;
+  let hls: any;
 
-  // Load stream
-  const hls = new Hls();
-  hls.loadSource(BASE + data.sources[0].url);
-  hls.attachMedia(videoEl);
-  hls.on(Hls.Events.MANIFEST_PARSED, () => videoEl.play());
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop()!;
+
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      const event = JSON.parse(line.slice(6));
+
+      if (event.type === 'meta') {
+        // Attach subtitle tracks as soon as meta arrives
+        (event.subtitles ?? []).forEach((sub: { label: string; file: string }, i: number) => {
+          const track   = document.createElement('track');
+          track.kind    = 'subtitles';
+          track.label   = sub.label;
+          track.src     = sub.file;
+          track.default = i === 0;
+          videoEl.appendChild(track);
+        });
+      }
+
+      if (event.type === 'source' && !started) {
+        started = true;
+        hls?.destroy();
+        // Import Hls dynamically if needed; assume it's already in scope here
+        hls = new Hls();
+        hls.loadSource(event.source.url);
+        hls.attachMedia(videoEl);
+        hls.on(Hls.Events.MANIFEST_PARSED, () => videoEl.play());
+      }
+
+      if (event.type === 'done' && !started) {
+        throw new Error('No sources available for this episode');
+      }
+    }
+  }
 }
 ```
 

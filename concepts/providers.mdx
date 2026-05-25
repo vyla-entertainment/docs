@@ -9,17 +9,17 @@ Vyla API aggregates multiple independent streaming providers. Each has different
 
 ## How Providers Are Used
 
-On every `/api/movie` or `/api/tv` request:
+On every `/movie` or `/tv` request:
 
 1. All active (non-disabled) providers are queried **simultaneously** with per-source random jitter to stagger upstream requests
 2. Each provider has its own **timeout**, **retry count**, and **backoff delay**
-3. Every returned URL is **verified** by fetching it and checking for `#EXTM3U`
-4. Only URLs that pass verification appear in the response
+3. Every returned URL is **verified** — first via a HEAD request to the raw upstream URL, then via a proxied HLS playability check
+4. Only URLs that pass both verification steps appear in the response as `source` events
 
-The total response time is determined by the slowest provider that returns a verified URL.
+Because the endpoint is SSE, **verified sources are emitted immediately as each provider resolves** — your player receives them progressively. The stream closes once every provider has either resolved or timed out.
 
 <Tip>
-  To see which providers are currently configured and their live status, call [`/api/health`](https://missourimonster-vyla.hf.space/api/health). Provider keys, labels, and timeouts are also available at [`/api/sources`](https://missourimonster-vyla.hf.space/api/sources).
+  To see which providers are currently configured and their live status, call [`/api/health`](https://missourimonster-vyla.hf.space/api/health). Provider keys, labels, and timeouts are also available via [`GET /api?sources_meta`](https://missourimonster-vyla.hf.space/api?sources_meta).
 </Tip>
 
 ---
@@ -34,6 +34,7 @@ Each provider is defined with the following properties:
 | `label` | Human-readable name shown in the `label` field |
 | `proxyParam` | Short query parameter used to route proxied requests |
 | `timeout` | Maximum time (ms) to wait for a stream URL |
+| `sourcesTimeout` | Optional secondary timeout (ms) for an internal source-listing step, used by some providers |
 | `jitter` | Max random delay (ms) before the request fires, to stagger upstream hits |
 | `retries` | Number of retry attempts on failure |
 | `skipProxy` | If `true`, stream URLs are returned as-is without proxy wrapping |
@@ -45,20 +46,15 @@ Providers with `disabled: true` are completely skipped — they won't appear in 
 
 ## Response Time
 
-The total response time for `/api/movie` or `/api/tv` depends on:
+The first `source` event typically arrives within **3–8 seconds**. Subsequent sources stream in as each provider resolves. The stream closes once the **slowest configured provider** times out — in the worst case this can be 60+ seconds (e.g. `cinezo` has a 60 s timeout), though most sources emit well before then.
 
-- The **slowest provider** that returns a verifiable URL
-- Plus the **verification fetch** for each candidate URL
-
-Typical range is **3–8 seconds**. In the worst case (only a high-timeout provider works), you may see 20–25+ seconds.
-
-**Best practice:** always show a loading state and implement a client-side timeout. See the [Error Handling](/guides/error-handling) guide.
+**Best practice:** always show a loading state, begin playback on the first `source` event, and implement a client-side timeout for the overall stream. See the [Error Handling](/guides/error-handling) guide.
 
 ---
 
 ## Caching
 
-Results are cached in an in-memory `Map` with a **5-minute TTL**, keyed by `source + tmdb_id + season + episode`. Cache hits skip the provider fetch entirely and return near-instantly.
+Results are cached in-memory with a **5-minute TTL**. The per-source stream cache is keyed by `source_key + tmdb_id + season + episode`; the aggregate source-results cache is keyed by `tmdb_id + season + episode + base`. Cache hits skip the provider fetch entirely and return near-instantly.
 
 ```
 CACHE_TTL = 5 minutes
@@ -88,16 +84,15 @@ This means **your player never talks to the provider directly** — all HLS traf
 
 ## Stream Verification
 
-Before a URL is returned in a response, it's verified by fetching the manifest and checking:
+Before a URL is emitted as a `source` event, it passes two verification steps:
 
-```javascript
-text.trim().startsWith('#EXTM3U')
-```
+1. **`verifyStream`** — a HEAD request to the raw upstream URL (skipped for `SKIP_VERIFY` sources). Must return HTTP `< 400`.
+2. **`verifyPlayable`** — fetches the proxied URL, validates `#EXTM3U`, checks for `#EXTINF` or `#EXT-X-STREAM-INF`, then fetches the first segment with a range request.
 
-Sources that return HTTP errors, timeouts, or non-HLS content are silently dropped. Only URLs confirmed to be valid HLS playlists appear in `sources[]`.
+Sources that fail either step — HTTP errors, timeouts, non-HLS/non-MP4 content — are silently dropped. MP4 sources skip the `#EXTM3U` check and are verified via HEAD + content-type inspection instead. HTTP 429 responses and timeout/abort errors are treated as **passing** (stream exists but is rate-limited).
 
 <Note>
-  The `/api/test` endpoint skips this verification step by default. Use `/api/movie` or `/api/tv` when you need confirmed-playable sources.
+  `/test` runs the same two-step verification pipeline as `/movie` and `/tv`. Check the `ok` field in the response body — HTTP status is always `200` regardless of result.
 </Note>
 
 ---
@@ -108,7 +103,7 @@ Providers marked `disabled: true` in config are completely excluded from:
 
 - `/api/movie` and `/api/tv` fanout
 - `/api/health` probes
-- `/api/sources` listings
+- `GET /api?sources_meta` listings
 
 If a provider you expect to see is missing from responses, check whether it's been disabled.
 
@@ -118,4 +113,4 @@ If a provider you expect to see is missing from responses, check whether it's be
 
 Some providers return multiple candidate stream URLs (via `allUrls`). For these, verification runs through each candidate in order and returns the first one that passes. If none pass, the source is dropped.
 
-For providers with `SKIP_VERIFY`, all candidate URLs are returned as separate labeled sources (e.g. `Provider Name 1`, `Provider Name 2`) without verification.
+For providers with `SKIP_VERIFY`, all candidate URLs are returned as separate source events without verification. These are not distinguished by numbered labels in the response.

@@ -47,7 +47,6 @@ for source, info in data['sources'].items():
 interface SourceHealth {
   ok: boolean;
   ms: number | null;
-  error?: string;
 }
 
 interface HealthResponse {
@@ -102,10 +101,6 @@ const data: HealthResponse = await fetch(
     <ResponseField name="ms" type="number | null">
       Response time in milliseconds. `null` if the probe threw an error before a response was received.
     </ResponseField>
-
-    <ResponseField name="error" type="string">
-      Error message, present only when the probe threw an exception.
-    </ResponseField>
   </Expandable>
 </ResponseField>
 
@@ -145,7 +140,7 @@ const data: HealthResponse = await fetch(
       "sources": {
         "provider-a": { "ok": true,  "ms": 1204 },
         "provider-b": { "ok": false, "ms": 435  },
-        "provider-c": { "ok": false, "ms": 1138, "error": "no stream returned" }
+        "provider-c": { "ok": false, "ms": 1138 }
       }
     }
     ```

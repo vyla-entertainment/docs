@@ -1,75 +1,101 @@
 ---
-title: Player
-description: Test any movie or TV show stream live in your browser using the Vyla Player embed.
+title: Live Player
+description: Test any movie or TV episode directly in your browser — no setup needed.
 ---
 
-<Tip>
-  This player is powered by the Vyla API and pulls streams from the same API.
-</Tip>
-
-<iframe
-  src="https://vyla-player.vercel.app?id=8363"
-  allow="fullscreen"
-  style={{ width: '100%', aspectRatio: '16/9', border: 'none', borderRadius: '12px' }}
-/>
-
-<Tip>
-  The player defaults to TMDB ID `8363` (Superbad). To load a different title, change the `id` in the URL above. For TV, use `?type=tv&id=<id>&season=1&episode=1`.
-</Tip>
-
----
-
-## URL Format
-
-**Movie**
-
-```
-https://vyla-player.vercel.app?id=<tmdb_id>
-```
-
-**TV Show**
-
-```
-https://vyla-player.vercel.app?type=tv&id=<tmdb_id>&season=<season>&episode=<episode>
-```
-
----
-
-## Parameters
-
-| Parameter | Description |
-|-----------|-------------|
-| `type` | `movie` (default) or `tv` |
-| `id` | TMDB ID of the title |
-| `season` | Season number — TV only |
-| `episode` | Episode number — TV only |
-
----
-
-## Embed It Yourself
-
-Copy this into any HTML page to embed the player:
-
-### Movies
-
-```html
-<iframe
-  src="https://vyla-player.vercel.app?id=8363"
-  allowfullscreen
-  style="width:100%;aspect-ratio:16/9;border:none;border-radius:12px"
-></iframe>
-```
-
-### TV Shows
-
-```html
-<iframe
-  src="https://vyla-player.vercel.app?type=tv&id=1399&season=1&episode=1"
-  allowfullscreen
-  style="width:100%;aspect-ratio:16/9;border:none;border-radius:12px"
-></iframe>
-```
+Enter a TMDB ID and hit play. Sources stream in as providers resolve — the player starts on the first one and queues the rest as fallbacks. Both HLS and MP4 sources are handled automatically.
 
 <Note>
-  The player pulls streams from the same providers as the API. If a title shows no sources, check [`/api/health`](https://missourimonster-vyla.hf.space/api/health) to confirm providers are live.
+  This player runs entirely in your browser against the live API. Source count and availability vary in real time depending on which providers are up. Check [/health](https://missourimonster-vyla.hf.space/health) if you see zero sources.
 </Note>
+
+---
+
+## Player
+
+<iframe
+  src="https://vyla-player.vercel.app/?id=8363"
+  style={{ width: '100%', aspectRatio: '16/9', border: 'none', borderRadius: 8 }}
+  allow="autoplay; fullscreen"
+/>
+
+---
+
+## How to Use
+
+**Movies** — enter a TMDB movie ID and click **Play Movie**. Find IDs on [themoviedb.org](https://themoviedb.org) — it's the number in the URL.
+
+| URL | TMDB ID | Title |
+|-----|---------|-------|
+| `themoviedb.org/movie/550` | `550` | Fight Club |
+| `themoviedb.org/movie/27205` | `27205` | Inception |
+| `themoviedb.org/movie/155` | `155` | The Dark Knight |
+
+**TV episodes** — enter the series TMDB ID, then pick a season and episode number.
+
+| URL | TMDB ID | Title |
+|-----|---------|-------|
+| `themoviedb.org/tv/1396` | `1396` | Breaking Bad |
+| `themoviedb.org/tv/94997` | `94997` | House of the Dragon |
+| `themoviedb.org/tv/1399` | `1399` | Game of Thrones |
+
+---
+
+## What You're Seeing
+
+As the player connects, three things happen in sequence:
+
+**Subtitle tracks load first** — attached to the video element before any source resolves. Toggle them with your browser's native subtitle control or the player's subtitle menu.
+
+**Sources stream in progressively** — each provider that passes verification emits a button in the source switcher. The player auto-starts on the first one. Click any button to switch manually.
+
+**HLS vs MP4** — sources are labeled `HLS` or `MP4` in the switcher. HLS streams go through HLS.js and support quality selection; MP4 sources play directly via `video.src`. Both work in every modern browser.
+
+---
+
+## Quality Selection
+
+For HLS sources, a quality selector appears once the manifest is parsed. Options are populated from the stream's available levels — select a fixed resolution or leave it on **Auto** to let HLS.js adapt to your connection.
+
+MP4 sources are single-quality — no selector is shown.
+
+---
+
+## Standalone Embed
+
+To embed the player in your own page:
+
+```html
+<iframe
+  src="https://vyla-player.vercel.app/?id=8363"
+  width="100%"
+  style="aspect-ratio: 16/9; border: none; border-radius: 8px;"
+  allow="autoplay; fullscreen"
+></iframe>
+```
+
+For a TV episode:
+
+```html
+<iframe
+  src="https://vyla-player.vercel.app/?id=1396&season=1&episode=1"
+  width="100%"
+  style="aspect-ratio: 16/9; border: none; border-radius: 8px;"
+  allow="autoplay; fullscreen"
+></iframe>
+```
+
+---
+
+## Build Your Own
+
+The live player is a reference implementation. For production use, integrate the API directly into your own player — you get full control over UI, fallback logic, and source handling.
+
+<CardGroup cols={2}>
+  <Card title="Player Integrations →" href="/guides/integrations">
+    Vanilla JS, React, Next.js, Vue, Android, iOS — all with HLS + MP4 support.
+  </Card>
+  <Card title="Movie Sources API →" href="/api-reference/movie">
+    Full SSE event reference for /movie and /tv.
+  </Card>
+</CardGroup>
