@@ -1,6 +1,6 @@
 ---
 title: Movie Sources
-api: "GET https://missourimonster-plsdontusethisinurprojectusetheotherone.hf.space/movie"
+api: "GET https://missourimonster-vyla.hf.space/movie"
 description: Stream verified HLS sources, subtitle tracks, and TMDB metadata for a movie via Server-Sent Events.
 ---
 
@@ -26,11 +26,11 @@ Every `url` in a `source` event is fully qualified and already routed through th
 
 <CodeGroup>
 ```bash cURL
-curl -N "https://missourimonster-plsdontusethisinurprojectusetheotherone.hf.space/movie?id=550"
+curl -N "https://missourimonster-vyla.hf.space/movie?id=550"
 ```
 
 ```javascript JavaScript (EventSource)
-const BASE = 'https://missourimonster-plsdontusethisinurprojectusetheotherone.hf.space';
+const BASE = 'https://missourimonster-vyla.hf.space';
 
 const es = new EventSource(`${BASE}/movie?id=550`);
 
@@ -56,7 +56,7 @@ es.onerror = () => es.close();
 ```
 
 ```javascript JavaScript (fetch)
-const BASE = 'https://missourimonster-plsdontusethisinurprojectusetheotherone.hf.space';
+const BASE = 'https://missourimonster-vyla.hf.space';
 
 const res = await fetch(`${BASE}/movie?id=550`);
 const reader = res.body.getReader();
@@ -83,7 +83,7 @@ while (true) {
 ```
 
 ```typescript TypeScript
-const BASE = 'https://missourimonster-plsdontusethisinurprojectusetheotherone.hf.space';
+const BASE = 'https://missourimonster-vyla.hf.space';
 
 interface Source {
   source: string;
@@ -130,7 +130,7 @@ async function streamMovie(tmdbId: number, onSource: (s: Source) => void) {
 ```python Python
 import requests, json
 
-BASE = 'https://missourimonster-plsdontusethisinurprojectusetheotherone.hf.space'
+BASE = 'https://missourimonster-vyla.hf.space'
 
 with requests.get(f'{BASE}/movie', params={'id': 550}, stream=True) as res:
     for line in res.iter_lines():
@@ -231,9 +231,9 @@ Emitted when all providers have resolved or timed out.
 ```
 data: {"type":"meta","meta":{"id":550,"title":"Fight Club","release_date":"1999-10-15","runtime":139},"subtitles":[{"label":"English","file":"https://cache.vdrk.site/v1/vtt/movie/550/English.vtt","type":"vtt","source":"v1"}]}
 
-data: {"type":"source","source":{"source":"provider-a","label":"Provider A","url":"https://missourimonster-plsdontusethisinurprojectusetheotherone.hf.space/api?url=...&pa=1"}}
+data: {"type":"source","source":{"source":"provider-a","label":"Provider A","url":"https://missourimonster-vyla.hf.space/api?url=...&pa=1"}}
 
-data: {"type":"source","source":{"source":"provider-b","label":"Provider B","url":"https://missourimonster-plsdontusethisinurprojectusetheotherone.hf.space/api?url=...&pb=1"}}
+data: {"type":"source","source":{"source":"provider-b","label":"Provider B","url":"https://missourimonster-vyla.hf.space/api?url=...&pb=1"}}
 
 data: {"type":"done","total":2}
 ```

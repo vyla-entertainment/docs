@@ -1,6 +1,6 @@
 ---
 title: TV Episode Sources
-api: "GET https://missourimonster-plsdontusethisinurprojectusetheotherone.hf.space/tv"
+api: "GET https://missourimonster-vyla.hf.space/tv"
 description: Stream verified HLS sources, subtitle tracks, and TMDB metadata for a TV episode via Server-Sent Events.
 ---
 
@@ -30,11 +30,11 @@ Identical to the movie endpoint in behavior, but requires a series ID plus seaso
 
 <CodeGroup>
 ```bash cURL
-curl -N "https://missourimonster-plsdontusethisinurprojectusetheotherone.hf.space/tv?id=1396&season=1&episode=1"
+curl -N "https://missourimonster-vyla.hf.space/tv?id=1396&season=1&episode=1"
 ```
 
 ```javascript JavaScript (EventSource)
-const BASE = 'https://missourimonster-plsdontusethisinurprojectusetheotherone.hf.space';
+const BASE = 'https://missourimonster-vyla.hf.space';
 
 const es = new EventSource(`${BASE}/tv?id=1396&season=1&episode=1`);
 
@@ -60,7 +60,7 @@ es.onerror = () => es.close();
 ```
 
 ```javascript JavaScript (fetch)
-const BASE = 'https://missourimonster-plsdontusethisinurprojectusetheotherone.hf.space';
+const BASE = 'https://missourimonster-vyla.hf.space';
 
 const res = await fetch(`${BASE}/tv?id=1396&season=1&episode=1`);
 const reader = res.body.getReader();
@@ -87,7 +87,7 @@ while (true) {
 ```
 
 ```typescript TypeScript
-const BASE = 'https://missourimonster-plsdontusethisinurprojectusetheotherone.hf.space';
+const BASE = 'https://missourimonster-vyla.hf.space';
 
 interface Source {
   source: string;
@@ -141,7 +141,7 @@ async function streamEpisode(
 ```python Python
 import requests, json
 
-BASE = 'https://missourimonster-plsdontusethisinurprojectusetheotherone.hf.space'
+BASE = 'https://missourimonster-vyla.hf.space'
 
 with requests.get(
   f'{BASE}/tv',
@@ -166,7 +166,7 @@ with requests.get(
 ```
 
 ```swift Swift
-let url = URL(string: "https://missourimonster-plsdontusethisinurprojectusetheotherone.hf.space/tv?id=1396&season=1&episode=1")!
+let url = URL(string: "https://missourimonster-vyla.hf.space/tv?id=1396&season=1&episode=1")!
 
 // Use URLSession with a delegate to handle SSE line-by-line
 class SSEDelegate: NSObject, URLSessionDataDelegate {
