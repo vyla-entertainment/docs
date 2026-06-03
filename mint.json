@@ -128,7 +128,8 @@
         {
             "group": "Misc",
             "pages": [
-                "misc/credit"
+                "misc/credit",
+                "misc/dmca"
             ]
         }
     ],

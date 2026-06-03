@@ -1,0 +1,68 @@
+---
+title: DMCA & Copyright
+description: Content sources used by Vyla API and how rights holders can request removal.
+---
+
+Vyla API is a self-hosted streaming proxy that aggregates publicly accessible stream URLs from third-party providers. Vyla does not host, store, upload, or distribute any video content. All media is served directly from its original source.
+
+---
+
+## How It Works
+
+Vyla acts as a **reverse proxy and aggregator**. When a stream is requested:
+
+1. Vyla queries third-party providers for a stream URL.
+2. That URL is proxied through the Vyla server to handle CORS headers.
+3. The underlying video segments are fetched from their original CDN and passed through to the client.
+
+At no point does Vyla store, transcode, or re-host any media file.
+
+---
+
+## Content Sources
+
+The following third-party sources are currently scraped or proxied by Vyla API. These are the upstream providers — Vyla does not control, operate, or own any of them.
+
+You can find the full list of sources in the [Vyla-Player-API sources directory](https://github.com/vyla-entertainment/stream-api/tree/main/src/sources).
+
+<Note>
+  This list reflects active sources. These sources are active or in the works.
+</Note>
+
+---
+
+## DMCA / Takedown Requests
+
+If you are a rights holder and believe that content accessible through Vyla API infringes your copyright, you may submit a takedown request. Because Vyla does not host the content itself, the most effective path is to contact the upstream source directly.
+
+However, Vyla can disable specific providers or sources upon valid request.
+
+**To submit a takedown request, contact:**
+
+<Card title="DMCA Contact" icon="envelope">
+  Open an issue on the GitHub repository or reach out via Discord or email.
+
+  - **GitHub Issues:** https://github.com/vyla-entertainment/stream-api/issues
+  - **Discord:** https://discord.gg/5eqRhKeywG
+  - **Email:** alwaysmesmerizingyou@gmail.com
+
+  Please include the following in your request:
+  - Your name and organization
+  - The specific content or provider you are requesting removal of
+  - Evidence of your rights to the content
+  - Your contact information
+</Card>
+
+---
+
+## Good Faith Compliance
+
+Vyla API is operated in good faith. Upon receiving a valid and complete takedown request, the relevant source will be reviewed and disabled within a reasonable timeframe if the claim is substantiated.
+
+Rights holders such as Sony Pictures, Universal, Warner Bros., Disney, Netflix, or any other studio or distributor are welcome to contact via the channels above. We will respond promptly.
+
+---
+
+## Disclaimer
+
+Vyla API is intended for personal, educational, and development use only. The operator of this API does not endorse or encourage copyright infringement. Users of this API are responsible for complying with the laws of their jurisdiction.
