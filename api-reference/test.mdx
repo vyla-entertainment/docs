@@ -41,24 +41,25 @@ Tests one specific provider for a given TMDB ID without running the full paralle
 ## Request
 
 <CodeGroup>
-```bash Movie
+```bash Movie (API key)
 curl "https://missourimonster-vyla.hf.space/api/test/550?source=<provider-key>" \
   -H "Authorization: Bearer public_api_key"
 ```
 
-```bash TV Episode
+```bash TV Episode (API key)
 curl "https://missourimonster-vyla.hf.space/api/test/1396?season=1&episode=1&source=<provider-key>" \
   -H "Authorization: Bearer public_api_key"
 ```
 
-```javascript JavaScript
+```javascript JavaScript (session token)
+const { token } = await fetch(
+  'https://missourimonster-vyla.hf.space/api/auth',
+  { method: 'POST' }
+).then(r => r.json());
+
 const res = await fetch(
   'https://missourimonster-vyla.hf.space/api/test/550?source=<provider-key>',
-  {
-    headers: {
-      Authorization: 'Bearer public_api_key'
-    }
-  }
+  { headers: { 'X-Session-Token': token } }
 );
 const data = await res.json();
 
@@ -69,7 +70,7 @@ if (data.ok) {
 }
 ```
 
-```typescript TypeScript
+```typescript TypeScript (session token)
 interface TestResponse {
   source: string;
   id: string;
@@ -82,12 +83,18 @@ interface TestResponse {
   error: string | null;
 }
 
+const { token } = await fetch(
+  'https://missourimonster-vyla.hf.space/api/auth',
+  { method: 'POST' }
+).then(r => r.json());
+
 const data: TestResponse = await fetch(
-  'https://missourimonster-vyla.hf.space/api/test/550?source=<provider-key>'
+  'https://missourimonster-vyla.hf.space/api/test/550?source=<provider-key>',
+  { headers: { 'X-Session-Token': token } }
 ).then(r => r.json());
 ```
 
-```python Python
+```python Python (API key)
 import requests
 
 res = requests.get(
@@ -196,6 +203,11 @@ if res['error']:
     }
     ```
   </Tab>
+  <Tab title="401 — Unauthorized">
+    ```json
+    { "error": "Invalid or expired session token" }
+    ```
+  </Tab>
   <Tab title="400 — Invalid Source">
     ```json
     { "error": "invalid or missing source" }
@@ -213,7 +225,8 @@ To test all providers in one go and see which are working for a given title:
 const BASE = 'https://missourimonster-vyla.hf.space';
 
 async function testAll(tmdbId, season, episode) {
-  // First, get the current list of provider keys
+  const { token } = await fetch(`${BASE}/api/auth`, { method: 'POST' }).then(r => r.json());
+
   const meta = await fetch(`${BASE}/api?sources_meta`).then(r => r.json());
   const sourceKeys = meta.sources.map(s => s.key);
 
@@ -223,7 +236,9 @@ async function testAll(tmdbId, season, episode) {
 
   const results = await Promise.all(
     sourceKeys.map(source =>
-      fetch(`${BASE}/api/test/${tmdbId}${params}&source=${source}`)
+      fetch(`${BASE}/api/test/${tmdbId}${params}&source=${source}`, {
+        headers: { 'X-Session-Token': token }
+      })
         .then(r => r.json())
         .catch(err => ({ source, ok: false, error: err.message, elapsed_ms: null }))
     )

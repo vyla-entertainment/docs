@@ -53,7 +53,8 @@ Pass a TMDB ID. Get back a live stream of working sources, multi-language subtit
 https://missourimonster-vyla.hf.space
 ```
 
-All endpoints return `Access-Control-Allow-Origin: *`. Every request requires an API key — see [Authentication](/authentication).
+All endpoints return `Access-Control-Allow-Origin: *`. Requests to protected endpoints require either a session token or an API key — see [Authentication](/authentication).
+
 ---
 
 ## How It Works
@@ -80,14 +81,15 @@ All endpoints return `Access-Control-Allow-Origin: *`. Every request requires an
 
 ## Endpoint Overview
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/movie?id=:id` | `GET` | SSE stream of sources + meta for a movie |
-| `/tv?id=:id&season=:s&episode=:e` | `GET` | SSE stream of sources + meta for a TV episode |
-| `/subtitles` | `GET` | Subtitle tracks (standalone) |
-| `/downloads` | `GET` | Download links for movies or TV episodes |
-| `/health` | `GET` | Per-provider health check with latency |
-| `/test` | `GET` | Debug a single provider in isolation |
+| Endpoint | Method | Auth required | Description |
+|----------|--------|---------------|-------------|
+| `/api/auth` | `POST` | None | Issue a session token for browser use |
+| `/movie?id=:id` | `GET` | Yes | SSE stream of sources + meta for a movie |
+| `/tv?id=:id&season=:s&episode=:e` | `GET` | Yes | SSE stream of sources + meta for a TV episode |
+| `/subtitles` | `GET` | None | Subtitle tracks (public) |
+| `/downloads` | `GET` | None | Download links for movies or TV episodes (public) |
+| `/health` | `GET` | Yes | Per-provider health check with latency |
+| `/test` | `GET` | Yes | Debug a single provider in isolation |
 
 <Tip>
   Check which providers are currently live: [`/health`](https://missourimonster-vyla.hf.space/health)
@@ -255,6 +257,7 @@ Every endpoint returns:
 ```http
 Access-Control-Allow-Origin: *
 Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD
+Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With, Origin, Accept, X-Session-Token
 Content-Type: application/json  (or text/event-stream for SSE endpoints)
 ```
 

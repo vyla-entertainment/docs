@@ -5,15 +5,56 @@ description: How to authenticate requests to the Vyla API.
 
 ## Overview
 
-Every request requires an API key. Your key's tier determines your rate limit and whether you can access streaming endpoints.
+The Vyla API supports two authentication methods depending on your use case.
 
-| Tier | Rate Limit | Streaming (`/movie`, `/tv`) |
-|------|-----------|-------------------------------|
+| Method | Header | Use case |
+|--------|--------|----------|
+| Session token | `X-Session-Token` | Browser players and client-side apps |
+| API key | `Authorization` or `X-API-Key` | Server-side integrations and direct API access |
+
+---
+
+## Session Tokens (Browser / Player)
+
+If you are building a browser-based player or client-side application, use session tokens. Your API key never leaves the server — the browser exchanges a one-time `POST /api/auth` call for a short-lived token, then uses that token for all subsequent requests.
+
+### Step 1 — Get a token
+
+```javascript
+const { token } = await fetch('https://missourimonster-vyla.hf.space/api/auth', {
+  method: 'POST'
+}).then(r => r.json());
+```
+
+No credentials required. The endpoint is public and returns a signed token valid for 30 minutes.
+
+### Step 2 — Send the token
+
+```javascript
+const res = await fetch('https://missourimonster-vyla.hf.space/api/test/550?source=vidlink', {
+  headers: { 'X-Session-Token': token }
+});
+```
+
+Tokens are HMAC-signed and verified server-side without shared in-memory state, so they work correctly across all server workers.
+
+### Token errors
+
+| Error | Cause |
+|-------|-------|
+| `Invalid or expired session token` | Token is malformed, has been tampered with, or is older than 30 minutes. Re-fetch from `/api/auth` and retry. |
+
+---
+
+## API Keys (Server-Side / Direct Access)
+
+API keys are for server-side integrations and direct API access where you control the environment and the key is never exposed to end users.
+
+| Tier | Rate Limit | Streaming access |
+|------|-----------|-----------------|
 | `public` | 10 req / 60s | No |
 | `standard` | 100 req / 60s | Yes |
 | `partner` | 1000 req / 60s | Yes |
-
-## Public Key
 
 A public key is available for testing non-streaming endpoints:
 
@@ -21,28 +62,34 @@ A public key is available for testing non-streaming endpoints:
 public_api_key
 ```
 
-## Requesting a Standard or Partner Key
-
 Standard and partner keys are no longer issued publicly. [Submit a request](https://forms.gle/zB57GNQngFtahsZz6) to get one.
 
-## Sending Your Key
+### Sending your key
 
 <CodeGroup>
 ```bash Authorization Header
-curl "https://missourimonster-vyla.hf.space/movie?id=550" \
+curl "https://missourimonster-vyla.hf.space/api/health" \
   -H "Authorization: Bearer public_api_key"
 ```
 
 ```bash X-API-Key Header
-curl "https://missourimonster-vyla.hf.space/movie?id=550" \
+curl "https://missourimonster-vyla.hf.space/api/health" \
   -H "X-API-Key: public_api_key"
 ```
 </CodeGroup>
 
-## Errors
+### API key errors
 
 | Error | Cause |
 |-------|-------|
-| `Missing API key` | No `Authorization` or `X-API-Key` header sent. |
+| `Missing API key` | No `Authorization`, `X-API-Key`, or `X-Session-Token` header sent. |
 | `Invalid API key` | Key doesn't match any known key. |
 | `Rate limit exceeded` | Tier's request limit hit for the current window. |
+
+---
+
+## Which method should I use?
+
+Use **session tokens** if your code runs in a browser. Putting an API key in client-side JavaScript exposes it in network requests — session tokens exist to prevent that.
+
+Use **API keys** if your code runs on a server where the key is never sent to the browser.
