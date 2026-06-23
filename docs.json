@@ -88,6 +88,7 @@
             "group": "Getting Started",
             "pages": [
               "introduction",
+              "authentication",
               "player",
               "api-reference/quickstart"
             ]
@@ -183,6 +184,9 @@
     "baseUrl": "https://missourimonster-vyla.hf.space",
     "playground": {
       "mode": "show"
+    },
+    "auth": {
+      "method": "bearer"
     }
   }
 }

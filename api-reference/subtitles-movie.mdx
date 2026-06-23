@@ -22,12 +22,18 @@ Returns an array of subtitle tracks for a movie. Each track is a direct link to 
 
 <CodeGroup>
 ```bash cURL
-curl https://missourimonster-vyla.hf.space/api/subtitles/movie/550
+curl https://missourimonster-vyla.hf.space/api/subtitles/movie/550 \
+  -H "Authorization: Bearer public_api_key"
 ```
 
 ```javascript JavaScript
 const subtitles = await fetch(
-  'https://missourimonster-vyla.hf.space/api/subtitles/movie/550'
+  'https://missourimonster-vyla.hf.space/api/subtitles/movie/550',
+  {
+    headers: {
+      Authorization: 'Bearer public_api_key'
+    }
+  }
 ).then(r => r.json());
 
 subtitles.forEach(sub => {
@@ -44,7 +50,12 @@ interface Subtitle {
 }
 
 const subtitles: Subtitle[] = await fetch(
-  'https://missourimonster-vyla.hf.space/api/subtitles/movie/550'
+  'https://missourimonster-vyla.hf.space/api/subtitles/movie/550',
+  {
+    headers: {
+      Authorization: 'Bearer public_api_key'
+    }
+  }
 ).then(r => r.json());
 ```
 
@@ -52,7 +63,10 @@ const subtitles: Subtitle[] = await fetch(
 import requests
 
 subtitles = requests.get(
-  'https://missourimonster-vyla.hf.space/api/subtitles/movie/550'
+  'https://missourimonster-vyla.hf.space/api/subtitles/movie/550',
+  headers={
+    'Authorization': 'Bearer public_api_key'
+  }
 ).json()
 
 for sub in subtitles:
@@ -138,7 +152,11 @@ Returns a JSON array. `404` if no subtitles are found for this title.
 <video id="player" controls></video>
 
 <script>
-  fetch('https://missourimonster-vyla.hf.space/api/subtitles/movie/550')
+  fetch('https://missourimonster-vyla.hf.space/api/subtitles/movie/550', {
+    headers: {
+      Authorization: 'Bearer public_api_key'
+    }
+  })
     .then(r => r.json())
     .then(subs => {
       const video = document.getElementById('player');
@@ -160,7 +178,12 @@ Returns a JSON array. `404` if no subtitles are found for this title.
 import videojs from 'video.js';
 
 const subs = await fetch(
-  'https://missourimonster-vyla.hf.space/api/subtitles/movie/550'
+  'https://missourimonster-vyla.hf.space/api/subtitles/movie/550',
+  {
+    headers: {
+      Authorization: 'Bearer public_api_key'
+    }
+  }
 ).then(r => r.json());
 
 const player = videojs('player');
@@ -180,7 +203,12 @@ subs.forEach(sub => {
 import Plyr from 'plyr';
 
 const subs = await fetch(
-  'https://missourimonster-vyla.hf.space/api/subtitles/movie/550'
+  'https://missourimonster-vyla.hf.space/api/subtitles/movie/550',
+  {
+    headers: {
+      Authorization: 'Bearer public_api_key'
+    }
+  }
 ).then(r => r.json());
 
 // Add <track> elements before initialising Plyr

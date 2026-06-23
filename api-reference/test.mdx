@@ -42,16 +42,23 @@ Tests one specific provider for a given TMDB ID without running the full paralle
 
 <CodeGroup>
 ```bash Movie
-curl "https://missourimonster-vyla.hf.space/api/test/550?source=<provider-key>"
+curl "https://missourimonster-vyla.hf.space/api/test/550?source=<provider-key>" \
+  -H "Authorization: Bearer public_api_key"
 ```
 
 ```bash TV Episode
-curl "https://missourimonster-vyla.hf.space/api/test/1396?season=1&episode=1&source=<provider-key>"
+curl "https://missourimonster-vyla.hf.space/api/test/1396?season=1&episode=1&source=<provider-key>" \
+  -H "Authorization: Bearer public_api_key"
 ```
 
 ```javascript JavaScript
 const res = await fetch(
-  'https://missourimonster-vyla.hf.space/api/test/550?source=<provider-key>'
+  'https://missourimonster-vyla.hf.space/api/test/550?source=<provider-key>',
+  {
+    headers: {
+      Authorization: 'Bearer public_api_key'
+    }
+  }
 );
 const data = await res.json();
 
@@ -85,7 +92,10 @@ import requests
 
 res = requests.get(
   'https://missourimonster-vyla.hf.space/api/test/550',
-  params={'source': '<provider-key>'}
+  params={'source': '<provider-key>'},
+  headers={
+    'Authorization': 'Bearer public_api_key'
+  }
 ).json()
 
 print(f"ok={res['ok']} elapsed={res['elapsed_ms']}ms")

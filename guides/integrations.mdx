@@ -122,7 +122,9 @@ Zero dependencies beyond HLS.js. Handles both HLS and MP4 correctly.
     }
 
     async function play(tmdbId) {
-      const res     = await fetch(`${BASE}/movie?id=${tmdbId}`);
+      const res = await fetch(`${BASE}/movie?id=${tmdbId}`, {
+  headers: { Authorization: 'Bearer public_api_key' }
+});
       const reader  = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer    = '';

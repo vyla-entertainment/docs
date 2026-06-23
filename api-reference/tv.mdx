@@ -38,7 +38,8 @@ Identical to the movie endpoint in behavior, but requires a series ID plus seaso
 
 <CodeGroup>
 ```bash cURL
-curl -N "https://missourimonster-vyla.hf.space/tv?id=1396&season=1&episode=1"
+curl -N "https://missourimonster-vyla.hf.space/tv?id=1396&season=1&episode=1" \
+  -H "Authorization: Bearer public_api_key"
 ```
 
 ```javascript JavaScript (EventSource)

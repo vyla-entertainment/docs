@@ -28,12 +28,18 @@ Returns direct download links for a specific TV episode. Each link comes with a 
 
 <CodeGroup>
 ```bash cURL
-curl https://missourimonster-vyla.hf.space/api/downloads/tv/1396/1/1
+curl https://missourimonster-vyla.hf.space/api/downloads/tv/1396/1/1 \
+  -H "Authorization: Bearer public_api_key"
 ```
 
 ```javascript JavaScript
 const res  = await fetch(
-  'https://missourimonster-vyla.hf.space/api/downloads/tv/1396/1/1'
+  'https://missourimonster-vyla.hf.space/api/downloads/tv/1396/1/1',
+  {
+    headers: {
+      Authorization: 'Bearer public_api_key'
+    }
+  }
 );
 const data = await res.json();
 
@@ -46,7 +52,10 @@ data.downloads.forEach(dl => {
 import requests
 
 data = requests.get(
-  'https://missourimonster-vyla.hf.space/api/downloads/tv/1396/1/1'
+  'https://missourimonster-vyla.hf.space/api/downloads/tv/1396/1/1',
+  headers={
+    'Authorization': 'Bearer public_api_key'
+  }
 ).json()
 
 for dl in data['downloads']:

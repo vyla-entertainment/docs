@@ -109,7 +109,9 @@ async function playWithFallback(
     hls.on(Hls.Events.MANIFEST_PARSED, () => videoEl.play());
   }
 
-  const res     = await fetch(endpoint);
+  const res = await fetch(endpoint, {
+  headers: { Authorization: 'Bearer public_api_key' }
+});
   const reader  = res.body!.getReader();
   const decoder = new TextDecoder();
   let buffer    = '';
@@ -226,7 +228,12 @@ async function checkAndStream(tmdbId: number) {
 
   // Proceed — degraded just means fewer sources will stream
   return fetch(
-    `https://missourimonster-vyla.hf.space/movie?id=${tmdbId}`
+    `https://missourimonster-vyla.hf.space/movie?id=${tmdbId}`,
+    {
+      headers: {
+        Authorization: 'Bearer public_api_key'
+      }
+    }
   );
 }
 ```
@@ -282,7 +289,9 @@ export function useStreamPlayer(tmdbId: number) {
     }
 
     try {
-      const res     = await fetch(`${BASE}/movie?id=${tmdbId}`);
+      const res = await fetch(`${BASE}/movie?id=${tmdbId}`, {
+  headers: { Authorization: 'Bearer public_api_key' }
+});
       const reader  = res.body!.getReader();
       const decoder = new TextDecoder();
       let buffer    = '';

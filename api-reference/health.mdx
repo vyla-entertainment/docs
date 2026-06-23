@@ -16,11 +16,16 @@ The health endpoint probes every active provider using a known-good TMDB ID and 
 
 <CodeGroup>
 ```bash cURL
-curl https://missourimonster-vyla.hf.space/api/health
+curl https://missourimonster-vyla.hf.space/api/health \
+  -H "Authorization: Bearer public_api_key"
 ```
 
 ```javascript JavaScript
-const res  = await fetch('https://missourimonster-vyla.hf.space/api/health');
+const res  = await fetch('https://missourimonster-vyla.hf.space/api/health', {
+  headers: {
+    Authorization: 'Bearer public_api_key'
+  }
+});
 const data = await res.json();
 
 if (data.status !== 'ok') {
@@ -34,7 +39,12 @@ if (data.status !== 'ok') {
 ```python Python
 import requests
 
-data = requests.get('https://missourimonster-vyla.hf.space/api/health').json()
+data = requests.get(
+  'https://missourimonster-vyla.hf.space/api/health',
+  headers={
+    'Authorization': 'Bearer public_api_key'
+  }
+).json()
 print(data['status'])
 
 for source, info in data['sources'].items():
@@ -59,7 +69,12 @@ interface HealthResponse {
 }
 
 const data: HealthResponse = await fetch(
-  'https://missourimonster-vyla.hf.space/api/health'
+  'https://missourimonster-vyla.hf.space/api/health',
+  {
+    headers: {
+      Authorization: 'Bearer public_api_key'
+    }
+  }
 ).then(r => r.json());
 ```
 </CodeGroup>

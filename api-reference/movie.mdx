@@ -34,7 +34,8 @@ Every `url` in a `source` event is fully qualified and already routed through th
 
 <CodeGroup>
 ```bash cURL
-curl -N "https://missourimonster-vyla.hf.space/movie?id=550"
+curl -N "https://missourimonster-vyla.hf.space/movie?id=550" \
+  -H "Authorization: Bearer public_api_key"
 ```
 
 ```javascript JavaScript (EventSource)

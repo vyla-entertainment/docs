@@ -30,12 +30,18 @@ Returns an array of subtitle tracks for a specific TV episode. Each track is a d
 
 <CodeGroup>
 ```bash cURL
-curl https://missourimonster-vyla.hf.space/api/subtitles/tv/1396/1/1
+curl https://missourimonster-vyla.hf.space/api/subtitles/tv/1396/1/1 \
+  -H "Authorization: Bearer public_api_key"
 ```
 
 ```javascript JavaScript
 const subtitles = await fetch(
-  'https://missourimonster-vyla.hf.space/api/subtitles/tv/1396/1/1'
+  'https://missourimonster-vyla.hf.space/api/subtitles/tv/1396/1/1',
+  {
+    headers: {
+      Authorization: 'Bearer public_api_key'
+    }
+  }
 ).then(r => r.json());
 
 subtitles.forEach(sub => {
@@ -52,7 +58,12 @@ interface Subtitle {
 }
 
 const subtitles: Subtitle[] = await fetch(
-  `https://missourimonster-vyla.hf.space/api/subtitles/tv/${seriesId}/${season}/${episode}`
+  `https://missourimonster-vyla.hf.space/api/subtitles/tv/${seriesId}/${season}/${episode}`,
+  {
+    headers: {
+      Authorization: 'Bearer public_api_key'
+    }
+  }
 ).then(r => r.json());
 ```
 
@@ -64,7 +75,10 @@ season    = 1
 episode   = 1
 
 subtitles = requests.get(
-  f'https://missourimonster-vyla.hf.space/api/subtitles/tv/{series_id}/{season}/{episode}'
+  f'https://missourimonster-vyla.hf.space/api/subtitles/tv/{series_id}/{season}/{episode}',
+  headers={
+    'Authorization': 'Bearer public_api_key'
+  }
 ).json()
 
 for sub in subtitles:

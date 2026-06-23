@@ -1,0 +1,48 @@
+---
+title: Authentication
+description: How to authenticate requests to the Vyla API.
+---
+
+## Overview
+
+Every request requires an API key. Your key's tier determines your rate limit and whether you can access streaming endpoints.
+
+| Tier | Rate Limit | Streaming (`/movie`, `/tv`) |
+|------|-----------|-------------------------------|
+| `public` | 10 req / 60s | No |
+| `standard` | 100 req / 60s | Yes |
+| `partner` | 1000 req / 60s | Yes |
+
+## Public Key
+
+A public key is available for testing non-streaming endpoints:
+
+```
+public_api_key
+```
+
+## Requesting a Standard or Partner Key
+
+Standard and partner keys are no longer issued publicly. [Submit a request](https://forms.gle/zB57GNQngFtahsZz6) to get one.
+
+## Sending Your Key
+
+<CodeGroup>
+```bash Authorization Header
+curl "https://missourimonster-vyla.hf.space/movie?id=550" \
+  -H "Authorization: Bearer public_api_key"
+```
+
+```bash X-API-Key Header
+curl "https://missourimonster-vyla.hf.space/movie?id=550" \
+  -H "X-API-Key: public_api_key"
+```
+</CodeGroup>
+
+## Errors
+
+| Error | Cause |
+|-------|-------|
+| `Missing API key` | No `Authorization` or `X-API-Key` header sent. |
+| `Invalid API key` | Key doesn't match any known key. |
+| `Rate limit exceeded` | Tier's request limit hit for the current window. |
