@@ -106,9 +106,9 @@ Use **API keys** if your code runs on a server where the key is never sent to th
 | Route | Auth required | `public` key allowed |
 |-------|---------------|----------------------|
 | `POST /api/auth` | No | — |
-| `GET /api/subtitles/*` | No | — |
-| `GET /api/downloads/*` | No | — |
 | `GET /api/health` | Yes | Yes |
+| `GET /api/subtitles/*` | Yes | No |
+| `GET /api/downloads/*` | Yes | No |
 | `GET /movie` | Yes | No |
 | `GET /tv` | Yes | No |
 | `GET /api/test/:id` | Yes | No |
