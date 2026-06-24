@@ -1,10 +1,11 @@
 ---
 title: TV Subtitles
 api: "GET https://missourimonster-vyla.hf.space/api/subtitles/tv/{tmdb_id}/{season}/{episode}"
+authMethod: "bearer"
 description: Fetch all available subtitle tracks for a TV episode.
 ---
 
-Returns an array of subtitle tracks for a specific TV episode. Each track is a direct `.vtt` or `.srt` link — no proxy needed. Subtitle tracks are also bundled automatically in `/api/tv` responses; use this endpoint when you need them independently.
+Returns an array of subtitle tracks for a specific TV episode. Each track is a direct `.vtt` or `.srt` link — no proxy needed. Requires a `standard` or `partner` API key. Subtitle tracks are also bundled automatically in `/tv` responses as part of the `meta` event; use this endpoint when you need them independently.
 
 ---
 
@@ -31,17 +32,13 @@ Returns an array of subtitle tracks for a specific TV episode. Each track is a d
 <CodeGroup>
 ```bash cURL
 curl https://missourimonster-vyla.hf.space/api/subtitles/tv/1396/1/1 \
-  -H "Authorization: Bearer public_api_key"
+  --header "Authorization: Bearer YOUR_API_KEY"
 ```
 
 ```javascript JavaScript
 const subtitles = await fetch(
   'https://missourimonster-vyla.hf.space/api/subtitles/tv/1396/1/1',
-  {
-    headers: {
-      Authorization: 'Bearer public_api_key'
-    }
-  }
+  { headers: { 'Authorization': 'Bearer YOUR_API_KEY' } }
 ).then(r => r.json());
 
 subtitles.forEach(sub => {
@@ -59,11 +56,7 @@ interface Subtitle {
 
 const subtitles: Subtitle[] = await fetch(
   `https://missourimonster-vyla.hf.space/api/subtitles/tv/${seriesId}/${season}/${episode}`,
-  {
-    headers: {
-      Authorization: 'Bearer public_api_key'
-    }
-  }
+  { headers: { 'Authorization': 'Bearer YOUR_API_KEY' } }
 ).then(r => r.json());
 ```
 
@@ -76,9 +69,7 @@ episode   = 1
 
 subtitles = requests.get(
   f'https://missourimonster-vyla.hf.space/api/subtitles/tv/{series_id}/{season}/{episode}',
-  headers={
-    'Authorization': 'Bearer public_api_key'
-  }
+  headers={'Authorization': 'Bearer YOUR_API_KEY'}
 ).json()
 
 for sub in subtitles:
@@ -139,6 +130,16 @@ Returns a JSON array. `404` if no subtitles are found for this episode.
     { "error": "no subtitles found" }
     ```
   </Tab>
+  <Tab title="401 — Unauthorized">
+    ```json
+    { "error": "Missing API key. Provide via Authorization header or X-API-Key header." }
+    ```
+  </Tab>
+  <Tab title="403 — Forbidden">
+    ```json
+    { "error": "Public keys cannot access subtitle endpoints" }
+    ```
+  </Tab>
   <Tab title="500 — Server Error">
     ```json
     { "error": "<error message>" }
@@ -157,13 +158,14 @@ async function loadEpisode(
   seriesId: number,
   season: number,
   episode: number,
-  videoEl: HTMLVideoElement
+  videoEl: HTMLVideoElement,
+  token: string
 ) {
-  // Remove existing subtitle tracks
   Array.from(videoEl.querySelectorAll('track')).forEach(t => t.remove());
 
-  // /tv is an SSE stream — must be consumed line by line
-  const res     = await fetch(`${BASE}/tv?id=${seriesId}&season=${season}&episode=${episode}`);
+  const res     = await fetch(`${BASE}/tv?id=${seriesId}&season=${season}&episode=${episode}`, {
+    headers: { 'X-Session-Token': token }
+  });
   const reader  = res.body!.getReader();
   const decoder = new TextDecoder();
   let buffer    = '';
@@ -183,7 +185,6 @@ async function loadEpisode(
       const event = JSON.parse(line.slice(6));
 
       if (event.type === 'meta') {
-        // Attach subtitle tracks as soon as meta arrives
         (event.subtitles ?? []).forEach((sub: { label: string; file: string }, i: number) => {
           const track   = document.createElement('track');
           track.kind    = 'subtitles';
@@ -197,7 +198,6 @@ async function loadEpisode(
       if (event.type === 'source' && !started) {
         started = true;
         hls?.destroy();
-        // Import Hls dynamically if needed; assume it's already in scope here
         hls = new Hls();
         hls.loadSource(event.source.url);
         hls.attachMedia(videoEl);

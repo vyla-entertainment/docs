@@ -1,10 +1,11 @@
 ---
 title: Movie Downloads
 api: "GET https://missourimonster-vyla.hf.space/api/downloads/movie/{tmdb_id}"
+authMethod: "bearer"
 description: Fetch direct download links for a movie with quality labels and file sizes.
 ---
 
-Returns direct download links for a movie. Each link comes with a quality label, file size, and format — useful for building download buttons or offline-capable applications.
+Returns direct download links for a movie. Each link comes with a quality label, file size, and format — useful for building download buttons or offline-capable applications. Requires a `standard` or `partner` API key.
 
 ---
 
@@ -21,14 +22,12 @@ Returns direct download links for a movie. Each link comes with a quality label,
 <CodeGroup>
 ```bash cURL
 curl https://missourimonster-vyla.hf.space/api/downloads/movie/550 \
-  -H "Authorization: Bearer public_api_key"
+  --header "Authorization: Bearer YOUR_API_KEY"
 ```
 
 ```javascript JavaScript
 const res  = await fetch('https://missourimonster-vyla.hf.space/api/downloads/movie/550', {
-  headers: {
-    Authorization: 'Bearer public_api_key'
-  }
+  headers: { 'Authorization': 'Bearer YOUR_API_KEY' }
 });
 const data = await res.json();
 
@@ -42,9 +41,7 @@ import requests
 
 data = requests.get(
   'https://missourimonster-vyla.hf.space/api/downloads/movie/550',
-  headers={
-    'Authorization': 'Bearer public_api_key'
-  }
+  headers={'Authorization': 'Bearer YOUR_API_KEY'}
 ).json()
 
 for dl in data['downloads']:
@@ -105,7 +102,7 @@ for dl in data['downloads']:
       Container format, e.g. `MP4`, `MKV`. Uppercase.
     </ResponseField>
     <ResponseField name="server" type="string">
-      Server name, e.g. `1`, `2`.
+      Server identifier, e.g. `1`, `2`.
     </ResponseField>
   </Expandable>
 </ResponseField>
@@ -117,6 +114,8 @@ for dl in data['downloads']:
 | Status | Meaning |
 |--------|---------|
 | `200` | Downloads found and returned |
+| `401` | Missing or invalid authentication |
+| `403` | Key tier does not have download access (`public` key) |
 | `500` | Server error |
 
 ---
@@ -127,11 +126,7 @@ for dl in data['downloads']:
 async function addMovieDownloadButtons(tmdbId, containerEl) {
   const res = await fetch(
     `https://missourimonster-vyla.hf.space/api/downloads/movie/${tmdbId}`,
-    {
-      headers: {
-        Authorization: 'Bearer public_api_key'
-      }
-    }
+    { headers: { 'Authorization': 'Bearer YOUR_API_KEY' } }
   );
 
   if (!res.ok) {
@@ -151,7 +146,7 @@ async function addMovieDownloadButtons(tmdbId, containerEl) {
     a.href    = dl.url;
     a.target  = '_blank';
     a.rel     = 'noopener noreferrer';
-    a.textContent = `Download ${dl.quality}${dl.size ? ` — ${dl.size}` : ''}${dl.server ? ` — ${dl.server}` : ''}`;
+    a.textContent = `Download ${dl.quality}${dl.size ? ` — ${dl.size}` : ''}${dl.server ? ` — Server ${dl.server}` : ''}`;
     containerEl.appendChild(a);
   });
 }

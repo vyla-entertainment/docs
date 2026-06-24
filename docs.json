@@ -181,12 +181,14 @@
     }
   },
   "api": {
-    "baseUrl": "https://missourimonster-vyla.hf.space",
+    "mdx": {
+      "server": "https://missourimonster-vyla.hf.space",
+      "auth": {
+        "method": "bearer"
+      }
+    },
     "playground": {
       "mode": "show"
-    },
-    "auth": {
-      "method": "bearer"
     }
   }
 }

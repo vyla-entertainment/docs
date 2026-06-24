@@ -16,7 +16,7 @@ The Vyla API supports two authentication methods depending on your use case.
 
 ## Session Tokens (Browser / Player)
 
-If you are building a browser-based player or client-side application, use session tokens. Your API key never leaves the server — the browser exchanges a one-time `POST /api/auth` call for a short-lived token, then uses that token for all subsequent requests.
+If you are building a browser-based player or client-side application, use session tokens. Your API key never leaves the server — the browser calls `POST /api/auth` to receive a short-lived token, then sends that token on every subsequent request.
 
 ### Step 1 — Get a token
 
@@ -31,7 +31,7 @@ No credentials required. The endpoint is public and returns a signed token valid
 ### Step 2 — Send the token
 
 ```javascript
-const res = await fetch('https://missourimonster-vyla.hf.space/api/test/550?source=vidlink', {
+const res = await fetch('https://missourimonster-vyla.hf.space/movie?id=550', {
   headers: { 'X-Session-Token': token }
 });
 ```
@@ -42,13 +42,13 @@ Tokens are HMAC-signed and verified server-side without shared in-memory state, 
 
 | Error | Cause |
 |-------|-------|
-| `Invalid or expired session token` | Token is malformed, has been tampered with, or is older than 30 minutes. Re-fetch from `/api/auth` and retry. |
+| `Invalid or expired session token` | Token is malformed, tampered with, or older than 30 minutes. Re-fetch from `/api/auth` and retry. |
 
 ---
 
 ## API Keys (Server-Side / Direct Access)
 
-API keys are for server-side integrations and direct API access where you control the environment and the key is never exposed to end users.
+API keys are for server-side integrations and direct API access where the key is never exposed to end users.
 
 | Tier | Rate Limit | Streaming access |
 |------|-----------|-----------------|
@@ -61,6 +61,10 @@ A public key is available for testing non-streaming endpoints:
 ```
 public_api_key
 ```
+
+<Warning>
+  The `public` tier cannot access `/movie`, `/tv`, `/test`, or `/debug`. Those endpoints require `standard` or `partner` tier, or a session token obtained via `POST /api/auth`.
+</Warning>
 
 Standard and partner keys are no longer issued publicly. [Submit a request](https://forms.gle/zB57GNQngFtahsZz6) to get one.
 
@@ -85,6 +89,7 @@ curl "https://missourimonster-vyla.hf.space/api/health" \
 | `Missing API key` | No `Authorization`, `X-API-Key`, or `X-Session-Token` header sent. |
 | `Invalid API key` | Key doesn't match any known key. |
 | `Rate limit exceeded` | Tier's request limit hit for the current window. |
+| `Public keys cannot access streaming endpoints` | A `public` key was used on `/movie` or `/tv`. Use a session token or a `standard`/`partner` key. |
 
 ---
 
@@ -93,3 +98,18 @@ curl "https://missourimonster-vyla.hf.space/api/health" \
 Use **session tokens** if your code runs in a browser. Putting an API key in client-side JavaScript exposes it in network requests — session tokens exist to prevent that.
 
 Use **API keys** if your code runs on a server where the key is never sent to the browser.
+
+---
+
+## Public vs. Protected Routes
+
+| Route | Auth required | `public` key allowed |
+|-------|---------------|----------------------|
+| `POST /api/auth` | No | — |
+| `GET /api/subtitles/*` | No | — |
+| `GET /api/downloads/*` | No | — |
+| `GET /api/health` | Yes | Yes |
+| `GET /movie` | Yes | No |
+| `GET /tv` | Yes | No |
+| `GET /api/test/:id` | Yes | No |
+| `GET /api/debug/:id` | Yes | No |

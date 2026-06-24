@@ -1,14 +1,19 @@
 ---
 title: Test a Source
 api: "GET https://missourimonster-vyla.hf.space/api/test/{id}"
+authMethod: "bearer"
 description: Debug a single provider in isolation — get the raw URL, proxy URL, elapsed time, and error details.
 ---
 
 Tests one specific provider for a given TMDB ID without running the full parallel fanout. Useful for debugging why a source isn't appearing in movie or TV responses, or for checking a provider's availability before building.
 
 <Note>
-  This endpoint runs the **same two-step verification pipeline** as `/movie` and `/tv` — a HEAD check on the raw URL, followed by a proxied HLS playability check. The `ok` field reflects whether a verified, playable URL was found. HTTP status is always `200` regardless of success or failure — always check `ok` in the body.
+  This endpoint runs the **same two-step verification pipeline** as `/movie` and `/tv` — a HEAD check on the raw URL, followed by a proxied HLS playability check. The `ok` field reflects whether a verified, playable URL was found. HTTP status is always `200` regardless of source success or failure — always check `ok` in the body.
 </Note>
+
+<Warning>
+  This endpoint requires a `standard` or `partner` API key, or a session token from `POST /api/auth`. The `public` key will receive a `403` response.
+</Warning>
 
 ---
 
@@ -25,7 +30,7 @@ Tests one specific provider for a given TMDB ID without running the full paralle
 <ParamField query="source" type="string" required>
   Provider key to test. Must exactly match one of the configured source keys.
 
-  Available keys are listed in the `sources` field of [`/api/health`](https://missourimonster-vyla.hf.space/api/health) or via [`GET /api?sources_meta`](https://missourimonster-vyla.hf.space/api?sources_meta).
+  Available keys are listed in the `sources` field of [`/api/health`](https://missourimonster-vyla.hf.space/api/health) or via [`GET /api?sources_meta=1`](https://missourimonster-vyla.hf.space/api?sources_meta=1).
 </ParamField>
 
 <ParamField query="season" type="number">
@@ -43,12 +48,26 @@ Tests one specific provider for a given TMDB ID without running the full paralle
 <CodeGroup>
 ```bash Movie (API key)
 curl "https://missourimonster-vyla.hf.space/api/test/550?source=<provider-key>" \
-  -H "Authorization: Bearer public_api_key"
+  --header "Authorization: Bearer YOUR_API_KEY"
+```
+
+```bash Movie (session token)
+TOKEN=$(curl -s -X POST https://missourimonster-vyla.hf.space/api/auth | jq -r .token)
+
+curl "https://missourimonster-vyla.hf.space/api/test/550?source=<provider-key>" \
+  -H "X-Session-Token: $TOKEN"
 ```
 
 ```bash TV Episode (API key)
 curl "https://missourimonster-vyla.hf.space/api/test/1396?season=1&episode=1&source=<provider-key>" \
-  -H "Authorization: Bearer public_api_key"
+  --header "Authorization: Bearer YOUR_API_KEY"
+```
+
+```bash TV Episode (session token)
+TOKEN=$(curl -s -X POST https://missourimonster-vyla.hf.space/api/auth | jq -r .token)
+
+curl "https://missourimonster-vyla.hf.space/api/test/1396?season=1&episode=1&source=<provider-key>" \
+  -H "X-Session-Token: $TOKEN"
 ```
 
 ```javascript JavaScript (session token)
@@ -94,14 +113,14 @@ const data: TestResponse = await fetch(
 ).then(r => r.json());
 ```
 
-```python Python (API key)
+```python Python (server-side key)
 import requests
 
 res = requests.get(
   'https://missourimonster-vyla.hf.space/api/test/550',
   params={'source': '<provider-key>'},
   headers={
-    'Authorization': 'Bearer public_api_key'
+    'Authorization': 'Bearer your_standard_api_key'
   }
 ).json()
 
@@ -205,7 +224,12 @@ if res['error']:
   </Tab>
   <Tab title="401 — Unauthorized">
     ```json
-    { "error": "Invalid or expired session token" }
+    { "error": "Missing API key. Provide via Authorization header or X-API-Key header." }
+    ```
+  </Tab>
+  <Tab title="403 — Forbidden">
+    ```json
+    { "error": "Public keys cannot access test endpoints" }
     ```
   </Tab>
   <Tab title="400 — Invalid Source">
@@ -227,16 +251,15 @@ const BASE = 'https://missourimonster-vyla.hf.space';
 async function testAll(tmdbId, season, episode) {
   const { token } = await fetch(`${BASE}/api/auth`, { method: 'POST' }).then(r => r.json());
 
-  const meta = await fetch(`${BASE}/api?sources_meta`).then(r => r.json());
+  const meta = await fetch(`${BASE}/api?sources_meta=1`).then(r => r.json());
   const sourceKeys = meta.sources.map(s => s.key);
 
-  const params = season && episode
-    ? `?season=${season}&episode=${episode}`
-    : '?';
+  const params = new URLSearchParams({ source: '' });
+  if (season && episode) { params.set('season', season); params.set('episode', episode); }
 
   const results = await Promise.all(
     sourceKeys.map(source =>
-      fetch(`${BASE}/api/test/${tmdbId}${params}&source=${source}`, {
+      fetch(`${BASE}/api/test/${tmdbId}?${params.toString()}&source=${source}`, {
         headers: { 'X-Session-Token': token }
       })
         .then(r => r.json())
@@ -255,5 +278,5 @@ testAll(550);
 ```
 
 <Tip>
-  For a quick overview without per-provider isolation, use [`/api/health`](https://missourimonster-vyla.hf.space/api/health) — it probes all providers simultaneously and is optimised for monitoring.
+  For a quick overview without per-provider isolation, use [`/api/health`](https://missourimonster-vyla.hf.space/api/health) — it probes all providers simultaneously and is optimised for monitoring. Health accepts `public_api_key`.
 </Tip>

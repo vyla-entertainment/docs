@@ -4,11 +4,13 @@ api: "GET https://missourimonster-vyla.hf.space/api/health"
 description: Probe all configured providers in real time and get per-source latency and status.
 ---
 
-The health endpoint probes every active provider using a known-good TMDB ID and reports whether each one is up, along with the response time in milliseconds. No parameters needed.
+The health endpoint probes every active provider using a known-good TMDB ID and reports whether each one is up, along with the response time in milliseconds. No query parameters needed.
 
 <Note>
   Health checks are **not cached**. Each call triggers a fresh live probe of all active providers — expect a response time of 2–10 seconds depending on provider count and speed.
 </Note>
+
+This endpoint accepts any valid API key (including `public`) or a session token from `POST /api/auth`.
 
 ---
 
@@ -170,6 +172,7 @@ const data: HealthResponse = await fetch(
 |------|----------------|---------|
 | `200` | `"ok"` | All providers healthy |
 | `207` | `"degraded"` | At least one provider down |
+| `401` | — | Missing or invalid authentication |
 
 <Warning>
   A `207 Degraded` response does **not** mean the API is unusable. Movie and TV endpoints will still return sources from whichever providers are working. Check `data.sources.length > 0` rather than depending on `status === "ok"` when deciding whether to proceed.

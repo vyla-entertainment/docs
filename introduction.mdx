@@ -81,18 +81,24 @@ All endpoints return `Access-Control-Allow-Origin: *`. Requests to protected end
 
 ## Endpoint Overview
 
-| Endpoint | Method | Auth required | Description |
-|----------|--------|---------------|-------------|
-| `/api/auth` | `POST` | None | Issue a session token for browser use |
-| `/movie?id=:id` | `GET` | Yes | SSE stream of sources + meta for a movie |
-| `/tv?id=:id&season=:s&episode=:e` | `GET` | Yes | SSE stream of sources + meta for a TV episode |
-| `/subtitles` | `GET` | None | Subtitle tracks (public) |
-| `/downloads` | `GET` | None | Download links for movies or TV episodes (public) |
-| `/health` | `GET` | Yes | Per-provider health check with latency |
-| `/test` | `GET` | Yes | Debug a single provider in isolation |
+| Endpoint | Method | Auth required | Notes |
+|----------|--------|---------------|-------|
+| `/api/auth` | `POST` | None | Issue a 30-minute session token for browser use |
+| `/movie?id=:id` | `GET` | Yes — standard/partner/session token | SSE stream of sources + meta for a movie |
+| `/tv?id=:id&season=:s&episode=:e` | `GET` | Yes — standard/partner/session token | SSE stream of sources + meta for a TV episode |
+| `/api/subtitles/movie/:id` | `GET` | None | Subtitle tracks for a movie |
+| `/api/subtitles/tv/:id/:s/:e` | `GET` | None | Subtitle tracks for a TV episode |
+| `/api/downloads/movie/:id` | `GET` | None | Download links for a movie |
+| `/api/downloads/tv/:id/:s/:e` | `GET` | None | Download links for a TV episode |
+| `/api/health` | `GET` | Yes — any key or session token | Per-provider health check with latency |
+| `/api/test/:id` | `GET` | Yes — standard/partner/session token | Debug a single provider in isolation |
+
+<Warning>
+  The `public` API key can only access `/api/health`. All streaming endpoints (`/movie`, `/tv`, `/api/test`, `/api/debug`) require a `standard` or `partner` key, or a session token from `POST /api/auth`.
+</Warning>
 
 <Tip>
-  Check which providers are currently live: [`/health`](https://missourimonster-vyla.hf.space/health)
+  Check which providers are currently live: [`/api/health`](https://missourimonster-vyla.hf.space/api/health)
 </Tip>
 
 ---
@@ -169,7 +175,7 @@ Returned inside `source` events on movie and TV streams.
 ```
 
 <ResponseField name="source" type="string">
-  Internal provider key. Matches the keys shown in `/health`.
+  Internal provider key. Matches the keys shown in `/api/health`.
 </ResponseField>
 
 <ResponseField name="label" type="string">
@@ -184,7 +190,7 @@ Returned inside `source` events on movie and TV streams.
 
 ### Subtitle Object
 
-Returned inside the `subtitles` array of the `meta` event, and as the top-level array on the `/subtitles` endpoint.
+Returned inside the `subtitles` array of the `meta` event, and as the top-level array on the `/api/subtitles` endpoints.
 
 ```json
 {
@@ -215,7 +221,7 @@ Returned inside the `subtitles` array of the `meta` event, and as the top-level 
 
 ### Download Object
 
-Returned inside `downloads[]` on the `/downloads` endpoint.
+Returned inside `downloads[]` on the `/api/downloads` endpoints.
 
 ```json
 {

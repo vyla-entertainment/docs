@@ -1,6 +1,7 @@
 ---
 title: Movie Sources
 api: "GET https://missourimonster-vyla.hf.space/movie"
+authMethod: "bearer"
 description: Stream verified HLS sources, subtitle tracks, and TMDB metadata for a movie via Server-Sent Events.
 ---
 
@@ -9,6 +10,10 @@ Opens a Server-Sent Events connection and queries all configured providers in pa
 The `meta` event fires first with TMDB metadata and subtitles. Each working source arrives as its own `source` event. A final `done` event closes the stream.
 
 Every `url` in a `source` event is fully qualified and already routed through the proxy. HLS sources have M3U8 segment paths rewritten — pass to `hls.loadSource()`. MP4 sources can be set directly as `video.src`.
+
+<Warning>
+  This endpoint requires a `standard` or `partner` API key, or a session token from `POST /api/auth`. The `public` key will receive a `403` response.
+</Warning>
 
 ---
 
@@ -23,7 +28,7 @@ Every `url` in a `source` event is fully qualified and already routed through th
 <ParamField query="sources" type="string">
   Comma-separated list of provider keys to query. When omitted, all active providers are queried.
 
-  **Example:** `sources=vidlink,vixsrc,meowtv`
+  **Example:** `sources=vidlink,vixsrc`
 
   Use `GET /api?sources_meta=1` to retrieve the full list of available provider keys.
 </ParamField>
@@ -33,41 +38,26 @@ Every `url` in a `source` event is fully qualified and already routed through th
 ## Request
 
 <CodeGroup>
-```bash cURL
+```bash cURL (API key)
 curl -N "https://missourimonster-vyla.hf.space/movie?id=550" \
-  -H "Authorization: Bearer public_api_key"
+  --header "Authorization: Bearer YOUR_API_KEY"
 ```
 
-```javascript JavaScript (EventSource)
-const BASE = 'https://missourimonster-vyla.hf.space';
+```bash cURL (session token)
+TOKEN=$(curl -s -X POST https://missourimonster-vyla.hf.space/api/auth | jq -r .token)
 
-const es = new EventSource(`${BASE}/movie?id=550`);
-
-es.onmessage = (e) => {
-  const event = JSON.parse(e.data);
-
-  if (event.type === 'meta') {
-    console.log('Title:', event.meta?.title);
-    console.log('Subtitles:', event.subtitles);
-  }
-
-  if (event.type === 'source') {
-    console.log(`Source: ${event.source.label} → ${event.source.url}`);
-  }
-
-  if (event.type === 'done') {
-    console.log(`Stream complete. Total sources: ${event.total}`);
-    es.close();
-  }
-};
-
-es.onerror = () => es.close();
+curl -N "https://missourimonster-vyla.hf.space/movie?id=550" \
+  -H "X-Session-Token: $TOKEN"
 ```
 
-```javascript JavaScript (fetch)
+```javascript JavaScript (session token)
 const BASE = 'https://missourimonster-vyla.hf.space';
 
-const res = await fetch(`${BASE}/movie?id=550`);
+const { token } = await fetch(`${BASE}/api/auth`, { method: 'POST' }).then(r => r.json());
+
+const res = await fetch(`${BASE}/movie?id=550`, {
+  headers: { 'X-Session-Token': token }
+});
 const reader = res.body.getReader();
 const decoder = new TextDecoder();
 let buffer = '';
@@ -91,7 +81,7 @@ while (true) {
 }
 ```
 
-```typescript TypeScript
+```typescript TypeScript (session token)
 const BASE = 'https://missourimonster-vyla.hf.space';
 
 interface Source {
@@ -114,7 +104,11 @@ interface DoneEvent   { type: 'done';   total: number; }
 type SSEEvent = MetaEvent | SourceEvent | DoneEvent;
 
 async function streamMovie(tmdbId: number, onSource: (s: Source) => void) {
-  const res = await fetch(`${BASE}/movie?id=${tmdbId}`);
+  const { token } = await fetch(`${BASE}/api/auth`, { method: 'POST' }).then(r => r.json());
+
+  const res = await fetch(`${BASE}/movie?id=${tmdbId}`, {
+    headers: { 'X-Session-Token': token }
+  });
   const reader = res.body!.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
@@ -136,12 +130,17 @@ async function streamMovie(tmdbId: number, onSource: (s: Source) => void) {
 }
 ```
 
-```python Python
+```python Python (server-side key)
 import requests, json
 
 BASE = 'https://missourimonster-vyla.hf.space'
 
-with requests.get(f'{BASE}/movie', params={'id': 550}, stream=True) as res:
+with requests.get(
+  f'{BASE}/movie',
+  params={'id': 550},
+  headers={'Authorization': 'Bearer your_standard_api_key'},
+  stream=True
+) as res:
     for line in res.iter_lines():
         if not line or not line.startswith(b'data: '):
             continue
@@ -208,7 +207,7 @@ Emitted once per verified, working provider.
 <ResponseField name="source" type="Source" required>
   <Expandable title="Source object">
     <ResponseField name="source" type="string">
-      Internal provider key. Matches the keys in `/health`.
+      Internal provider key. Matches the keys in `/api/health`.
     </ResponseField>
     <ResponseField name="label" type="string">
       Human-readable provider name.
@@ -255,6 +254,8 @@ data: {"type":"done","total":2}
 |--------|---------|
 | `200` | SSE stream opened successfully — events follow |
 | `400` | Missing `id` parameter |
+| `401` | Missing or invalid authentication |
+| `403` | Key tier does not have streaming access (`public` key) |
 | `500` | Server error before the stream could begin |
 
 <Note>
@@ -275,6 +276,10 @@ data: {"type":"done","total":2}
 ```json 400
 { "error": "missing id", "route": "/movie?id=:tmdb_id", "example": "/movie?id=155" }
 ```
+
+```json 403
+{ "error": "Public keys cannot access streaming endpoints" }
+```
 </ResponseExample>
 
 ---
@@ -287,7 +292,6 @@ data: {"type":"done","total":2}
 
     ```
     /movie?id=550&sources=vidlink,vixsrc
-    /tv?id=1396&season=1&episode=1&sources=vidlink,vixsrc
     ```
 
     Keys that don't match any active provider are silently ignored. If none of the requested keys match, the response will emit `done` with `total: 0`. Omit the parameter entirely to query all active providers.
@@ -299,9 +303,9 @@ data: {"type":"done","total":2}
     Sources arrive in the order providers resolve, which generally correlates with speed. Use the first `source` event to begin playback and queue the rest as fallbacks.
   </Accordion>
   <Accordion title="Zero sources">
-    If all providers fail, you'll receive a `done` event with `total: 0` and no `source` events. Check `/health` to see which providers are up.
+    If all providers fail, you'll receive a `done` event with `total: 0` and no `source` events. Check `/api/health` to see which providers are up.
   </Accordion>
   <Accordion title="Using EventSource vs fetch streaming">
-    `EventSource` is simpler but doesn't support POST or custom headers. The `fetch` + `ReadableStream` approach works everywhere and is shown in the examples above.
+    `EventSource` does not support custom headers, so you cannot send `X-Session-Token` through it. Use the `fetch` + `ReadableStream` approach shown in the examples above when authenticating with a session token.
   </Accordion>
 </AccordionGroup>

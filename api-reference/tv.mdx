@@ -1,10 +1,15 @@
 ---
 title: TV Episode Sources
 api: "GET https://missourimonster-vyla.hf.space/tv"
+authMethod: "bearer"
 description: Stream verified HLS sources, subtitle tracks, and TMDB metadata for a TV episode via Server-Sent Events.
 ---
 
 Identical to the movie endpoint in behavior, but requires a series ID plus season and episode numbers. Results stream via Server-Sent Events — the `meta` event fires immediately with subtitles and TMDB data, then each working provider emits its own `source` event as it resolves.
+
+<Warning>
+  This endpoint requires a `standard` or `partner` API key, or a session token from `POST /api/auth`. The `public` key will receive a `403` response.
+</Warning>
 
 ---
 
@@ -27,7 +32,7 @@ Identical to the movie endpoint in behavior, but requires a series ID plus seaso
 <ParamField query="sources" type="string">
   Comma-separated list of provider keys to query. When omitted, all active providers are queried.
 
-  **Example:** `sources=vidlink,vixsrc,meowtv`
+  **Example:** `sources=vidlink,vixsrc`
 
   Use `GET /api?sources_meta=1` to retrieve the full list of available provider keys.
 </ParamField>
@@ -37,41 +42,26 @@ Identical to the movie endpoint in behavior, but requires a series ID plus seaso
 ## Request
 
 <CodeGroup>
-```bash cURL
+```bash cURL (API key)
 curl -N "https://missourimonster-vyla.hf.space/tv?id=1396&season=1&episode=1" \
-  -H "Authorization: Bearer public_api_key"
+  --header "Authorization: Bearer YOUR_API_KEY"
 ```
 
-```javascript JavaScript (EventSource)
-const BASE = 'https://missourimonster-vyla.hf.space';
+```bash cURL (session token)
+TOKEN=$(curl -s -X POST https://missourimonster-vyla.hf.space/api/auth | jq -r .token)
 
-const es = new EventSource(`${BASE}/tv?id=1396&season=1&episode=1`);
-
-es.onmessage = (e) => {
-  const event = JSON.parse(e.data);
-
-  if (event.type === 'meta') {
-    console.log('Episode:', event.meta?.name);
-    console.log('Subtitles:', event.subtitles);
-  }
-
-  if (event.type === 'source') {
-    console.log(`Source: ${event.source.label} → ${event.source.url}`);
-  }
-
-  if (event.type === 'done') {
-    console.log(`Stream complete. Total sources: ${event.total}`);
-    es.close();
-  }
-};
-
-es.onerror = () => es.close();
+curl -N "https://missourimonster-vyla.hf.space/tv?id=1396&season=1&episode=1" \
+  -H "X-Session-Token: $TOKEN"
 ```
 
-```javascript JavaScript (fetch)
+```javascript JavaScript (session token)
 const BASE = 'https://missourimonster-vyla.hf.space';
 
-const res = await fetch(`${BASE}/tv?id=1396&season=1&episode=1`);
+const { token } = await fetch(`${BASE}/api/auth`, { method: 'POST' }).then(r => r.json());
+
+const res = await fetch(`${BASE}/tv?id=1396&season=1&episode=1`, {
+  headers: { 'X-Session-Token': token }
+});
 const reader = res.body.getReader();
 const decoder = new TextDecoder();
 let buffer = '';
@@ -95,7 +85,7 @@ while (true) {
 }
 ```
 
-```typescript TypeScript
+```typescript TypeScript (session token)
 const BASE = 'https://missourimonster-vyla.hf.space';
 
 interface Source {
@@ -124,7 +114,11 @@ async function streamEpisode(
   onSource: (s: Source) => void,
   onMeta?: (meta: MetaEvent) => void
 ) {
-  const res = await fetch(`${BASE}/tv?id=${seriesId}&season=${season}&episode=${episode}`);
+  const { token } = await fetch(`${BASE}/api/auth`, { method: 'POST' }).then(r => r.json());
+
+  const res = await fetch(`${BASE}/tv?id=${seriesId}&season=${season}&episode=${episode}`, {
+    headers: { 'X-Session-Token': token }
+  });
   const reader = res.body!.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
@@ -147,7 +141,7 @@ async function streamEpisode(
 }
 ```
 
-```python Python
+```python Python (server-side key)
 import requests, json
 
 BASE = 'https://missourimonster-vyla.hf.space'
@@ -155,6 +149,7 @@ BASE = 'https://missourimonster-vyla.hf.space'
 with requests.get(
   f'{BASE}/tv',
   params={'id': 1396, 'season': 1, 'episode': 1},
+  headers={'Authorization': 'Bearer your_standard_api_key'},
   stream=True
 ) as res:
     for line in res.iter_lines():
@@ -176,8 +171,9 @@ with requests.get(
 
 ```swift Swift
 let url = URL(string: "https://missourimonster-vyla.hf.space/tv?id=1396&season=1&episode=1")!
+var request = URLRequest(url: url)
+request.setValue("your_session_token", forHTTPHeaderField: "X-Session-Token")
 
-// Use URLSession with a delegate to handle SSE line-by-line
 class SSEDelegate: NSObject, URLSessionDataDelegate {
     func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
         guard let text = String(data: data, encoding: .utf8) else { return }
@@ -193,7 +189,7 @@ class SSEDelegate: NSObject, URLSessionDataDelegate {
 
 let delegate = SSEDelegate()
 let session = URLSession(configuration: .default, delegate: delegate, delegateQueue: nil)
-session.dataTask(with: url).resume()
+session.dataTask(with: request).resume()
 ```
 </CodeGroup>
 
@@ -276,6 +272,8 @@ Emitted once per verified, working provider.
 |--------|---------|
 | `200` | SSE stream opened successfully |
 | `400` | Missing `id`, `season`, or `episode` parameter |
+| `401` | Missing or invalid authentication |
+| `403` | Key tier does not have streaming access (`public` key) |
 | `500` | Server error before the stream could begin |
 
 <ResponseExample>
@@ -291,6 +289,10 @@ data: {"type":"done","total":2}
 
 ```json 400
 { "error": "missing parameters", "route": "/tv?id=:id&season=:s&episode=:e", "example": "/tv?id=1396&season=1&episode=1" }
+```
+
+```json 403
+{ "error": "Public keys cannot access streaming endpoints" }
 ```
 </ResponseExample>
 
@@ -323,6 +325,9 @@ data: {"type":"done","total":2}
     Unlike the movie endpoint where `meta` describes the film, here `meta` contains **episode** data from TMDB — title, overview, air date, and episode number. Series-level metadata is not included.
   </Accordion>
   <Accordion title="Zero sources">
-    If all providers fail, you'll receive a `done` event with `total: 0` and no `source` events. Check `/health` to see which providers are up.
+    If all providers fail, you'll receive a `done` event with `total: 0` and no `source` events. Check `/api/health` to see which providers are up.
+  </Accordion>
+  <Accordion title="Using EventSource vs fetch streaming">
+    `EventSource` does not support custom headers, so you cannot send `X-Session-Token` through it. Use the `fetch` + `ReadableStream` approach shown in the examples above when authenticating with a session token.
   </Accordion>
 </AccordionGroup>

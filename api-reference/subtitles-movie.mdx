@@ -1,10 +1,11 @@
 ---
 title: Movie Subtitles
 api: "GET https://missourimonster-vyla.hf.space/api/subtitles/movie/{tmdb_id}"
+authMethod: "bearer"
 description: Fetch all available subtitle tracks for a movie.
 ---
 
-Returns an array of subtitle tracks for a movie. Each track is a direct link to a `.vtt` or `.srt` file — no proxy needed. Subtitle tracks are also bundled automatically in `/api/movie` responses; use this endpoint when you need them independently.
+Returns an array of subtitle tracks for a movie. Each track is a direct link to a `.vtt` or `.srt` file — no proxy needed. Requires a `standard` or `partner` API key. Subtitle tracks are also bundled automatically in `/movie` responses as part of the `meta` event; use this endpoint when you need them independently.
 
 ---
 
@@ -23,17 +24,13 @@ Returns an array of subtitle tracks for a movie. Each track is a direct link to 
 <CodeGroup>
 ```bash cURL
 curl https://missourimonster-vyla.hf.space/api/subtitles/movie/550 \
-  -H "Authorization: Bearer public_api_key"
+  --header "Authorization: Bearer YOUR_API_KEY"
 ```
 
 ```javascript JavaScript
 const subtitles = await fetch(
   'https://missourimonster-vyla.hf.space/api/subtitles/movie/550',
-  {
-    headers: {
-      Authorization: 'Bearer public_api_key'
-    }
-  }
+  { headers: { 'Authorization': 'Bearer YOUR_API_KEY' } }
 ).then(r => r.json());
 
 subtitles.forEach(sub => {
@@ -51,11 +48,7 @@ interface Subtitle {
 
 const subtitles: Subtitle[] = await fetch(
   'https://missourimonster-vyla.hf.space/api/subtitles/movie/550',
-  {
-    headers: {
-      Authorization: 'Bearer public_api_key'
-    }
-  }
+  { headers: { 'Authorization': 'Bearer YOUR_API_KEY' } }
 ).then(r => r.json());
 ```
 
@@ -64,9 +57,7 @@ import requests
 
 subtitles = requests.get(
   'https://missourimonster-vyla.hf.space/api/subtitles/movie/550',
-  headers={
-    'Authorization': 'Bearer public_api_key'
-  }
+  headers={'Authorization': 'Bearer YOUR_API_KEY'}
 ).json()
 
 for sub in subtitles:
@@ -135,6 +126,16 @@ Returns a JSON array. `404` if no subtitles are found for this title.
     { "error": "no subtitles found" }
     ```
   </Tab>
+  <Tab title="401 — Unauthorized">
+    ```json
+    { "error": "Missing API key. Provide via Authorization header or X-API-Key header." }
+    ```
+  </Tab>
+  <Tab title="403 — Forbidden">
+    ```json
+    { "error": "Public keys cannot access subtitle endpoints" }
+    ```
+  </Tab>
   <Tab title="500 — Server Error">
     ```json
     { "error": "<error message>" }
@@ -153,9 +154,7 @@ Returns a JSON array. `404` if no subtitles are found for this title.
 
 <script>
   fetch('https://missourimonster-vyla.hf.space/api/subtitles/movie/550', {
-    headers: {
-      Authorization: 'Bearer public_api_key'
-    }
+    headers: { 'Authorization': 'Bearer YOUR_API_KEY' }
   })
     .then(r => r.json())
     .then(subs => {
@@ -165,7 +164,7 @@ Returns a JSON array. `404` if no subtitles are found for this title.
         track.kind    = 'subtitles';
         track.label   = sub.label;
         track.src     = sub.file;
-        track.default = i === 0; // default to first track
+        track.default = i === 0;
         video.appendChild(track);
       });
     });
@@ -179,11 +178,7 @@ import videojs from 'video.js';
 
 const subs = await fetch(
   'https://missourimonster-vyla.hf.space/api/subtitles/movie/550',
-  {
-    headers: {
-      Authorization: 'Bearer public_api_key'
-    }
-  }
+  { headers: { 'Authorization': 'Bearer YOUR_API_KEY' } }
 ).then(r => r.json());
 
 const player = videojs('player');
@@ -204,14 +199,9 @@ import Plyr from 'plyr';
 
 const subs = await fetch(
   'https://missourimonster-vyla.hf.space/api/subtitles/movie/550',
-  {
-    headers: {
-      Authorization: 'Bearer public_api_key'
-    }
-  }
+  { headers: { 'Authorization': 'Bearer YOUR_API_KEY' } }
 ).then(r => r.json());
 
-// Add <track> elements before initialising Plyr
 subs.forEach(sub => {
   const track = Object.assign(document.createElement('track'), {
     kind:  'captions',
@@ -227,5 +217,5 @@ const player = new Plyr('#player', {
 ```
 
 <Note>
-  Subtitle tracks are included automatically in `/api/movie` responses. Only call this endpoint when you need subtitles without fetching stream sources.
+  Subtitle tracks are included automatically in `/movie` responses inside the `meta` event. Only call this endpoint when you need subtitles without fetching stream sources.
 </Note>

@@ -20,11 +20,13 @@ You'll need a TMDB ID for the content you want to stream. Every movie and TV sho
 
 The Vyla API supports two authentication methods — session tokens for browser apps, and API keys for server-side integrations. See [Authentication](/authentication) for full details.
 
-**Browser apps:** exchange a `POST /api/auth` call for a session token, then send `X-Session-Token` on every request. Your API key never appears in the browser.
+**Browser apps:** call `POST /api/auth` to get a session token, then send `X-Session-Token` on every request. No API key needed in the browser.
 
-**Server-side:** send your key as `Authorization: Bearer <key>` or `X-API-Key: <key>`.
+**Server-side:** send a `standard` or `partner` key as `Authorization: Bearer <key>` or `X-API-Key: <key>`.
 
-The `public` tier key cannot open `/movie` or `/tv` streams — you need `standard` or `partner` for that, or use a session token obtained via `/api/auth`.
+<Note>
+  The `public` key (`public_api_key`) can only access `/api/health`. Streaming endpoints (`/movie`, `/tv`, `/api/test`) require a `standard` or `partner` key, or a session token from `POST /api/auth`.
+</Note>
 
 ---
 
@@ -33,14 +35,18 @@ The `public` tier key cannot open `/movie` or `/tv` streams — you need `standa
 The `/movie` and `/tv` endpoints are **Server-Sent Events** — not JSON. Open a streaming connection and handle three event types as they arrive: `meta`, `source`, and `done`.
 
 <CodeGroup>
-```bash Movie (API key)
+```bash Movie (session token)
+TOKEN=$(curl -s -X POST https://missourimonster-vyla.hf.space/api/auth | jq -r .token)
+
 curl -N "https://missourimonster-vyla.hf.space/movie?id=550" \
-  -H "Authorization: Bearer public_api_key"
+  -H "X-Session-Token: $TOKEN"
 ```
 
-```bash TV Episode (API key)
+```bash TV Episode (session token)
+TOKEN=$(curl -s -X POST https://missourimonster-vyla.hf.space/api/auth | jq -r .token)
+
 curl -N "https://missourimonster-vyla.hf.space/tv?id=1396&season=1&episode=1" \
-  -H "Authorization: Bearer public_api_key"
+  -H "X-Session-Token: $TOKEN"
 ```
 </CodeGroup>
 
@@ -236,20 +242,20 @@ Parse each `data:` line as JSON and act on the `type` field. Start playback on t
     }
     ```
   </Tab>
-  <Tab title="Python (API key)">
+  <Tab title="Python (server-side key)">
     ```python
     import requests, json
 
     BASE = 'https://missourimonster-vyla.hf.space'
 
-    def stream_movie(tmdb_id: int):
+    def stream_movie(tmdb_id: int, api_key: str):
         sources   = []
         subtitles = []
 
         with requests.get(
             f'{BASE}/movie',
             params={'id': tmdb_id},
-            headers={'Authorization': 'Bearer public_api_key'},
+            headers={'Authorization': f'Bearer {api_key}'},
             stream=True
         ) as res:
             for line in res.iter_lines():
@@ -271,7 +277,7 @@ Parse each `data:` line as JSON and act on the `type` field. Start playback on t
 
         return sources, subtitles
 
-    sources, subtitles = stream_movie(550)
+    sources, subtitles = stream_movie(550, 'your_standard_api_key')
     ```
   </Tab>
 </Tabs>
@@ -370,10 +376,10 @@ if (event.type === 'meta') {
 
 ## Check Provider Health
 
-Before building, verify which providers are currently live:
+Before building, verify which providers are currently live. The health endpoint accepts any valid API key or session token.
 
 ```bash
-curl https://missourimonster-vyla.hf.space/health \
+curl https://missourimonster-vyla.hf.space/api/health \
   -H "Authorization: Bearer public_api_key"
 ```
 
@@ -398,15 +404,17 @@ curl https://missourimonster-vyla.hf.space/health \
 
 ## Debug a Single Provider
 
-Use `/test` to isolate a specific provider without running the full fanout:
+Use `/api/test` to isolate a specific provider without running the full fanout. This endpoint requires a `standard`/`partner` key or session token.
 
 ```bash
-curl "https://missourimonster-vyla.hf.space/test/550?source=<provider-key>" \
-  -H "Authorization: Bearer public_api_key"
+TOKEN=$(curl -s -X POST https://missourimonster-vyla.hf.space/api/auth | jq -r .token)
+
+curl "https://missourimonster-vyla.hf.space/api/test/550?source=<provider-key>" \
+  -H "X-Session-Token: $TOKEN"
 ```
 
 <Tip>
-  Available provider keys are listed in the `/health` response under the `sources` field.
+  Available provider keys are listed in the `/api/health` response under the `sources` field.
 </Tip>
 
 <Card title="Full API Reference →" href="/api-reference/movie">
