@@ -74,7 +74,7 @@ Zero dependencies beyond HLS.js. Handles both HLS and MP4 correctly.
   <div id="status">Loading…</div>
 
   <script>
-    const BASE   = 'https://missourimonster-vyla.hf.space';
+    const BASE   = 'https://missourimonster-vyla-v2.hf.space';
     const video  = document.getElementById('player');
     const status = document.getElementById('status');
     let hlsInstance = null;
@@ -195,7 +195,7 @@ Source switching, fallback queue, subtitle tracks, quality selector. All source 
   <div id="status">Connecting…</div>
 
   <script>
-    const BASE      = 'https://missourimonster-vyla.hf.space';
+    const BASE      = 'https://missourimonster-vyla-v2.hf.space';
     const video     = document.getElementById('player');
     const statusEl  = document.getElementById('status');
     const sourcesEl = document.getElementById('sources');
@@ -374,7 +374,7 @@ Handles SSE parsing, abort on unmount, and re-fetch on param change. Drop-in for
 // hooks/useStream.ts
 import { useState, useEffect, useRef } from 'react';
 
-const BASE = 'https://missourimonster-vyla.hf.space';
+const BASE = 'https://missourimonster-vyla-v2.hf.space';
 
 export interface StreamSource {
   source: string;
@@ -853,7 +853,7 @@ const props = defineProps<{
   episode?: number;
 }>();
 
-const BASE = 'https://missourimonster-vyla.hf.space';
+const BASE = 'https://missourimonster-vyla-v2.hf.space';
 
 interface Source   { source: string; label: string; url: string; }
 interface Subtitle { label: string; file: string; type: string; source: string; }
@@ -986,7 +986,7 @@ import java.net.URL
 
 class StreamActivity : AppCompatActivity() {
 
-    private val BASE = "https://missourimonster-vyla.hf.space"
+    private val BASE = "https://missourimonster-vyla-v2.hf.space"
     private lateinit var player: ExoPlayer
     private val scope = CoroutineScope(Dispatchers.Main + Job())
 
@@ -1060,7 +1060,7 @@ import AVKit
 
 class StreamViewController: UIViewController {
 
-    let BASE = "https://missourimonster-vyla.hf.space"
+    let BASE = "https://missourimonster-vyla-v2.hf.space"
     var player: AVPlayer?
     var playerLayer: AVPlayerLayer?
     var streamTask: URLSessionDataTask?
@@ -1152,7 +1152,7 @@ import requests
 import json
 import subprocess
 
-BASE = 'https://missourimonster-vyla.hf.space'
+BASE = 'https://missourimonster-vyla-v2.hf.space'
 
 def stream(tmdb_id: int, season: int = None, episode: int = None):
     url = (

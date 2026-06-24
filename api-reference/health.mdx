@@ -1,6 +1,6 @@
 ---
 title: Health Check
-api: "GET https://missourimonster-vyla.hf.space/api/health"
+api: "GET https://missourimonster-vyla-v2.hf.space/api/health"
 description: Probe all configured providers in real time and get per-source latency and status.
 ---
 
@@ -18,12 +18,12 @@ This endpoint accepts any valid API key (including `public`) or a session token 
 
 <CodeGroup>
 ```bash cURL
-curl https://missourimonster-vyla.hf.space/api/health \
+curl https://missourimonster-vyla-v2.hf.space/api/health \
   -H "Authorization: Bearer public_api_key"
 ```
 
 ```javascript JavaScript
-const res  = await fetch('https://missourimonster-vyla.hf.space/api/health', {
+const res  = await fetch('https://missourimonster-vyla-v2.hf.space/api/health', {
   headers: {
     Authorization: 'Bearer public_api_key'
   }
@@ -42,7 +42,7 @@ if (data.status !== 'ok') {
 import requests
 
 data = requests.get(
-  'https://missourimonster-vyla.hf.space/api/health',
+  'https://missourimonster-vyla-v2.hf.space/api/health',
   headers={
     'Authorization': 'Bearer public_api_key'
   }
@@ -71,7 +71,7 @@ interface HealthResponse {
 }
 
 const data: HealthResponse = await fetch(
-  'https://missourimonster-vyla.hf.space/api/health',
+  'https://missourimonster-vyla-v2.hf.space/api/health',
   {
     headers: {
       Authorization: 'Bearer public_api_key'

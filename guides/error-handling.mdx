@@ -30,7 +30,7 @@ For `/movie` and `/tv`, HTTP `200` is returned immediately when the SSE stream o
 The most common failure — all providers failed to return a playable stream. Detect it by checking `total` in the `done` event.
 
 ```typescript
-const BASE = 'https://missourimonster-vyla.hf.space';
+const BASE = 'https://missourimonster-vyla-v2.hf.space';
 
 const res     = await fetch(`${BASE}/movie?id=550`);
 const reader  = res.body!.getReader();
@@ -68,7 +68,7 @@ Sources stream in as providers resolve. Queue every `source` event URL and fall 
 ```typescript
 import Hls from 'hls.js';
 
-const BASE = 'https://missourimonster-vyla.hf.space';
+const BASE = 'https://missourimonster-vyla-v2.hf.space';
 
 async function playWithFallback(
   videoEl: HTMLVideoElement,
@@ -216,7 +216,7 @@ If you're building a dashboard, check provider health before opening a stream to
 ```typescript
 async function checkAndStream(tmdbId: number) {
   const health = await fetch(
-    'https://missourimonster-vyla.hf.space/health'
+    'https://missourimonster-vyla-v2.hf.space/health'
   ).then(r => r.json());
 
   if (health.status === 'degraded') {
@@ -228,7 +228,7 @@ async function checkAndStream(tmdbId: number) {
 
   // Proceed — degraded just means fewer sources will stream
   return fetch(
-    `https://missourimonster-vyla.hf.space/movie?id=${tmdbId}`,
+    `https://missourimonster-vyla-v2.hf.space/movie?id=${tmdbId}`,
     {
       headers: {
         Authorization: 'Bearer public_api_key'
@@ -246,7 +246,7 @@ async function checkAndStream(tmdbId: number) {
 import { useState, useCallback, useRef } from 'react';
 import Hls from 'hls.js';
 
-const BASE = 'https://missourimonster-vyla.hf.space';
+const BASE = 'https://missourimonster-vyla-v2.hf.space';
 
 type PlayerState =
   | { status: 'idle' }
