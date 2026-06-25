@@ -63,7 +63,7 @@ public_api_key
 ```
 
 <Warning>
-  The `public` tier cannot access `/movie`, `/tv`, `/test`, or `/debug`. Those endpoints require `standard` or `partner` tier, or a session token obtained via `POST /api/auth`.
+The `public` tier can access every endpoint except the stream proxy (`/api?url=...`). Streaming video/segment data requires a `standard`/`partner` key or a session token obtained via `POST /api/auth`.
 </Warning>
 
 Standard and partner keys are no longer issued publicly. [Submit a request](https://forms.gle/zB57GNQngFtahsZz6) to get one.
@@ -105,11 +105,12 @@ Use **API keys** if your code runs on a server where the key is never sent to th
 
 | Route | Auth required | `public` key allowed |
 |-------|---------------|----------------------|
-| `POST /api/auth` | No | — |
+| `POST /api/auth` | No | Yes |
 | `GET /api/health` | Yes | Yes |
-| `GET /api/subtitles/*` | Yes | No |
-| `GET /api/downloads/*` | Yes | No |
-| `GET /movie` | Yes | No |
-| `GET /tv` | Yes | No |
-| `GET /api/test/:id` | Yes | No |
-| `GET /api/debug/:id` | Yes | No |
+| `GET /api/subtitles/*` | Yes | Yes |
+| `GET /api/downloads/*` | Yes | Yes |
+| `GET /movie` | Yes | Yes |
+| `GET /tv` | Yes | Yes |
+| `GET /api/test/:id` | Yes | Yes |
+| `GET /api/debug/:id` | Yes | Yes |
+| `/proxy` | Yes | Yes |
