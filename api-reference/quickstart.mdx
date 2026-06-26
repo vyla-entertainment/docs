@@ -20,12 +20,12 @@ You'll need a TMDB ID for the content you want to stream. Every movie and TV sho
 
 The Vyla API supports two authentication methods — session tokens for browser apps, and API keys for server-side integrations. See [Authentication](/authentication) for full details.
 
-**Browser apps:** call `POST /api/auth` to get a session token, then send `X-Session-Token` on every request. No API key needed in the browser.
+**Browser apps:** your server calls `POST /api/auth` with a valid API key to receive a session token, then passes that token to the client. The client sends `X-Session-Token` on every request. Your API key never touches the browser.
 
 **Server-side:** send a `standard` or `partner` key as `Authorization: Bearer <key>` or `X-API-Key: <key>`.
 
 <Note>
-  The `public` key (`public_api_key`) can only access `/api/health`. Streaming endpoints (`/movie`, `/tv`, `/api/test`) require a `standard` or `partner` key, or a session token from `POST /api/auth`.
+  The `public` key (`public_api_key`) can only access `/api/health`, `/api/subtitles`, and `/api/downloads`. Streaming endpoints (`/movie`, `/tv`, `/api/test`) require a `standard` or `partner` key, or a session token issued from one via `POST /api/auth`. `POST /api/auth` itself requires a valid API key of any tier.
 </Note>
 
 ---
@@ -36,14 +36,16 @@ The `/movie` and `/tv` endpoints are **Server-Sent Events** — not JSON. Open a
 
 <CodeGroup>
 ```bash Movie (session token)
-TOKEN=$(curl -s -X POST https://missourimonster-vyla-v2.hf.space/api/auth | jq -r .token)
+TOKEN=$(curl -s -X POST https://missourimonster-vyla-v2.hf.space/api/auth \
+  -H "Authorization: Bearer YOUR_API_KEY" | jq -r .token)
 
 curl -N "https://missourimonster-vyla-v2.hf.space/movie?id=550" \
   -H "X-Session-Token: $TOKEN"
 ```
 
 ```bash TV Episode (session token)
-TOKEN=$(curl -s -X POST https://missourimonster-vyla-v2.hf.space/api/auth | jq -r .token)
+TOKEN=$(curl -s -X POST https://missourimonster-vyla-v2.hf.space/api/auth \
+  -H "Authorization: Bearer YOUR_API_KEY" | jq -r .token)
 
 curl -N "https://missourimonster-vyla-v2.hf.space/tv?id=1396&season=1&episode=1" \
   -H "X-Session-Token: $TOKEN"
@@ -109,7 +111,10 @@ Parse each `data:` line as JSON and act on the `type` field. Start playback on t
         }
 
         async function loadMovie(tmdbId) {
-          const { token } = await fetch(`${BASE}/api/auth`, { method: 'POST' }).then(r => r.json());
+          const { token } = await fetch(`${BASE}/api/auth`, {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer YOUR_API_KEY' }
+          }).then(r => r.json());
 
           const res = await fetch(`${BASE}/movie?id=${tmdbId}`, {
             headers: { 'X-Session-Token': token }
@@ -199,7 +204,10 @@ Parse each `data:` line as JSON and act on the `type` field. Start playback on t
         let started = false;
 
         (async () => {
-          const { token } = await fetch(`${BASE}/api/auth`, { method: 'POST' }).then(r => r.json());
+          const { token } = await fetch(`${BASE}/api/auth`, {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer YOUR_API_KEY' }
+          }).then(r => r.json());
 
           const res = await fetch(`${BASE}/movie?id=${tmdbId}`, {
             headers: { 'X-Session-Token': token }
@@ -297,7 +305,10 @@ async function streamWithFallback(
   season?: number,
   episode?: number
 ) {
-  const { token } = await fetch(`${BASE}/api/auth`, { method: 'POST' }).then(r => r.json());
+  const { token } = await fetch(`${BASE}/api/auth`, {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer YOUR_API_KEY' }
+  }).then(r => r.json());
 
   const endpoint = season && episode
     ? `${BASE}/tv?id=${tmdbId}&season=${season}&episode=${episode}`
@@ -407,7 +418,8 @@ curl https://missourimonster-vyla-v2.hf.space/api/health \
 Use `/api/test` to isolate a specific provider without running the full fanout. This endpoint requires a `standard`/`partner` key or session token.
 
 ```bash
-TOKEN=$(curl -s -X POST https://missourimonster-vyla-v2.hf.space/api/auth | jq -r .token)
+TOKEN=$(curl -s -X POST https://missourimonster-vyla-v2.hf.space/api/auth \
+  -H "Authorization: Bearer YOUR_API_KEY" | jq -r .token)
 
 curl "https://missourimonster-vyla-v2.hf.space/api/test/550?source=<provider-key>" \
   -H "X-Session-Token: $TOKEN"

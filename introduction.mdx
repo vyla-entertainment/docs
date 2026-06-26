@@ -83,18 +83,18 @@ All endpoints return `Access-Control-Allow-Origin: *`. Requests to protected end
 
 | Endpoint | Method | Auth required | Notes |
 |----------|--------|---------------|-------|
-| `/api/auth` | `POST` | None | Issue a 30-minute session token for browser use |
+| `/api/auth` | `POST` | Yes — any valid API key | Issue a 30-minute session token; token inherits the key's tier |
 | `/movie?id=:id` | `GET` | Yes — standard/partner/session token | SSE stream of sources + meta for a movie |
 | `/tv?id=:id&season=:s&episode=:e` | `GET` | Yes — standard/partner/session token | SSE stream of sources + meta for a TV episode |
-| `/api/subtitles/movie/:id` | `GET` | None | Subtitle tracks for a movie |
-| `/api/subtitles/tv/:id/:s/:e` | `GET` | None | Subtitle tracks for a TV episode |
-| `/api/downloads/movie/:id` | `GET` | None | Download links for a movie |
-| `/api/downloads/tv/:id/:s/:e` | `GET` | None | Download links for a TV episode |
-| `/api/health` | `GET` | Yes — any key or session token | Per-provider health check with latency |
+| `/api/subtitles/movie/:id` | `GET` | Yes — any valid key or session token | Subtitle tracks for a movie |
+| `/api/subtitles/tv/:id/:s/:e` | `GET` | Yes — any valid key or session token | Subtitle tracks for a TV episode |
+| `/api/downloads/movie/:id` | `GET` | Yes — any valid key or session token | Download links for a movie |
+| `/api/downloads/tv/:id/:s/:e` | `GET` | Yes — any valid key or session token | Download links for a TV episode |
+| `/api/health` | `GET` | Yes — any valid key or session token | Per-provider health check with latency |
 | `/api/test/:id` | `GET` | Yes — standard/partner/session token | Debug a single provider in isolation |
 
 <Warning>
-  The `public` API key can only access `/api/health`. All streaming endpoints (`/movie`, `/tv`, `/api/test`, `/api/debug`) require a `standard` or `partner` key, or a session token from `POST /api/auth`.
+  The `public` API key cannot access streaming endpoints (`/movie`, `/tv`, `/api/test`, `/api/debug`) or the stream proxy (`/api?url=`). Those require a `standard` or `partner` key, or a session token issued from one. `POST /api/auth` itself requires a valid API key of any tier.
 </Warning>
 
 <Tip>

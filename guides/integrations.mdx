@@ -12,10 +12,7 @@ Every source URL from `/movie` and `/tv` is either an **HLS stream** (`.m3u8`) o
 This is the single utility everything below depends on. A URL is MP4 if the proxy path ends in `.mp4` or the upstream served a video content-type that isn't HLS.
 
 ```typescript
-// lib/sourceType.ts
 export function isMp4(url: string): boolean {
-  // The proxy wraps the real URL as ?url=<encoded>
-  // Decode and inspect the inner URL for the file extension
   try {
     const inner = new URL(url).searchParams.get('url') ?? url;
     return /\.mp4(\?|$)/i.test(inner) || /\.mkv(\?|$)/i.test(inner);
@@ -92,7 +89,6 @@ Zero dependencies beyond HLS.js. Handles both HLS and MP4 correctly.
       hlsInstance = null;
 
       if (isMp4(url)) {
-        // MP4 — set directly, no HLS.js needed
         video.src = url;
         video.play().catch(() => {});
         status.textContent = `Playing ${label} (MP4)`;
@@ -110,7 +106,6 @@ Zero dependencies beyond HLS.js. Handles both HLS and MP4 correctly.
         return;
       }
 
-      // Safari native HLS
       if (video.canPlayType('application/vnd.apple.mpegurl')) {
         video.src = url;
         video.play().catch(() => {});
@@ -122,9 +117,14 @@ Zero dependencies beyond HLS.js. Handles both HLS and MP4 correctly.
     }
 
     async function play(tmdbId) {
+      const { token } = await fetch(`${BASE}/api/auth`, {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer YOUR_API_KEY' }
+      }).then(r => r.json());
+
       const res = await fetch(`${BASE}/movie?id=${tmdbId}`, {
-  headers: { Authorization: 'Bearer public_api_key' }
-});
+        headers: { 'X-Session-Token': token }
+      });
       const reader  = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer    = '';
@@ -299,6 +299,11 @@ Source switching, fallback queue, subtitle tracks, quality selector. All source 
     };
 
     async function loadContent(tmdbId, season, episode) {
+      const { token } = await fetch(`${BASE}/api/auth`, {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer YOUR_API_KEY' }
+      }).then(r => r.json());
+
       const url = (season && episode)
         ? `${BASE}/tv?id=${tmdbId}&season=${season}&episode=${episode}`
         : `${BASE}/movie?id=${tmdbId}`;
@@ -308,7 +313,7 @@ Source switching, fallback queue, subtitle tracks, quality selector. All source 
       statusEl.textContent = 'Connecting…';
       let started = false;
 
-      const res     = await fetch(url);
+      const res     = await fetch(url, { headers: { 'X-Session-Token': token } });
       const reader  = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer    = '';
@@ -326,7 +331,6 @@ Source switching, fallback queue, subtitle tracks, quality selector. All source 
 
           if (event.type === 'meta') {
             statusEl.textContent = `Loading ${event.meta?.title ?? event.meta?.name ?? ''}…`;
-            // Clear and reattach subtitle tracks
             Array.from(video.querySelectorAll('track')).forEach(t => t.remove());
             (event.subtitles ?? []).forEach((sub, i) => {
               const track = Object.assign(document.createElement('track'), {
@@ -352,11 +356,7 @@ Source switching, fallback queue, subtitle tracks, quality selector. All source 
       }
     }
 
-    // Usage: movie
     loadContent(550);
-
-    // Usage: TV episode
-    // loadContent(1396, 1, 1);
   </script>
 </body>
 </html>
@@ -371,7 +371,6 @@ Source switching, fallback queue, subtitle tracks, quality selector. All source 
 Handles SSE parsing, abort on unmount, and re-fetch on param change. Drop-in for any framework.
 
 ```typescript
-// hooks/useStream.ts
 import { useState, useEffect, useRef } from 'react';
 
 const BASE = 'https://missourimonster-vyla-v2.hf.space';
@@ -423,7 +422,16 @@ export function useStream(
 
     (async () => {
       try {
-        const res     = await fetch(url, { signal: controller.signal });
+        const { token } = await fetch(`${BASE}/api/auth`, {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer YOUR_API_KEY' },
+          signal: controller.signal,
+        }).then(r => r.json());
+
+        const res     = await fetch(url, {
+          signal: controller.signal,
+          headers: { 'X-Session-Token': token },
+        });
         const reader  = res.body!.getReader();
         const decoder = new TextDecoder();
         let buffer    = '';
@@ -464,7 +472,6 @@ export function useStream(
 Centralises HLS vs MP4 detection so every component shares one path.
 
 ```typescript
-// lib/attachSource.ts
 import Hls from 'hls.js';
 
 export function isMp4(url: string): boolean {
@@ -514,7 +521,7 @@ export function attachSource(
     return { hls: null, type: 'native-hls' };
   }
 
-  return { hls: null, type: 'mp4' }; // last resort — let the browser try
+  return { hls: null, type: 'mp4' };
 }
 ```
 
@@ -523,7 +530,6 @@ export function attachSource(
 Full-featured player: auto-starts on first source, queues fallbacks, source switcher, quality selector, subtitle tracks. Works for movies and TV.
 
 ```tsx
-// components/StreamPlayer.tsx
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import Hls from 'hls.js';
@@ -549,7 +555,6 @@ export function StreamPlayer({ tmdbId, season, episode }: Props) {
   const [quality, setQuality]           = useState(-1);
   const [status, setStatus]             = useState('Connecting…');
 
-  // Reset when content changes
   useEffect(() => {
     startedRef.current = false;
     queueRef.current   = [];
@@ -577,7 +582,6 @@ export function StreamPlayer({ tmdbId, season, episode }: Props) {
         setStatus(`Playing via ${src.label}${isMp4(src.url) ? ' · MP4' : ' · HLS'}`);
       },
       () => {
-        // Fatal HLS error — try next in queue
         const next = queueRef.current.shift();
         if (next) playSource(next);
         else setStatus('All sources failed.');
@@ -590,7 +594,6 @@ export function StreamPlayer({ tmdbId, season, episode }: Props) {
       setStatus(`Playing via ${src.label} · MP4`);
   }
 
-  // Start on first source, queue the rest as fallbacks
   useEffect(() => {
     if (!sources.length) return;
     const latest = sources[sources.length - 1];
@@ -602,12 +605,10 @@ export function StreamPlayer({ tmdbId, season, episode }: Props) {
     }
   }, [sources]);
 
-  // Sync quality level to HLS.js
   useEffect(() => {
     if (hlsRef.current) hlsRef.current.currentLevel = quality;
   }, [quality]);
 
-  // Cleanup on unmount
   useEffect(() => () => { hlsRef.current?.destroy(); }, []);
 
   if (error) return (
@@ -618,7 +619,6 @@ export function StreamPlayer({ tmdbId, season, episode }: Props) {
 
   return (
     <div style={{ width: '100%' }}>
-      {/* Video element */}
       <video
         ref={videoRef}
         controls
@@ -635,16 +635,13 @@ export function StreamPlayer({ tmdbId, season, episode }: Props) {
         ))}
       </video>
 
-      {/* Status bar */}
       <div style={{ fontSize: '0.75rem', color: '#666', marginTop: 4 }}>
         {loading && !sources.length ? 'Connecting to providers…' : status}
         {done && ` · ${sources.length} source${sources.length !== 1 ? 's' : ''} found`}
       </div>
 
-      {/* Controls row */}
       {(sources.length > 0 || levels.length > 1) && (
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.5rem', alignItems: 'center' }}>
-          {/* Quality selector — only shown for HLS with multiple levels */}
           {levels.length > 1 && (
             <select
               value={quality}
@@ -661,7 +658,6 @@ export function StreamPlayer({ tmdbId, season, episode }: Props) {
             </select>
           )}
 
-          {/* Source switcher */}
           {sources.length > 1 && sources.map(src => (
             <button
               key={src.source}
@@ -691,7 +687,6 @@ export function StreamPlayer({ tmdbId, season, episode }: Props) {
 Renders an episode list and mounts the player only when an episode is selected — no streams open until the user picks something.
 
 ```tsx
-// components/EpisodeSelector.tsx
 'use client';
 import { useState } from 'react';
 import { StreamPlayer } from './StreamPlayer';
@@ -749,7 +744,6 @@ export function EpisodeSelector({ seriesId, season, episodes }: Props) {
 ### Movie Page
 
 ```tsx
-// app/movie/[id]/page.tsx
 import { StreamPlayer } from '@/components/StreamPlayer';
 
 export default function MoviePage({ params }: { params: { id: string } }) {
@@ -764,7 +758,6 @@ export default function MoviePage({ params }: { params: { id: string } }) {
 ### TV Episode Page
 
 ```tsx
-// app/tv/[id]/[season]/[episode]/page.tsx
 import { StreamPlayer } from '@/components/StreamPlayer';
 
 export default function EpisodePage({
@@ -789,7 +782,6 @@ export default function EpisodePage({
 HLS.js accesses `window` and will crash during SSR. Either mark the component `'use client'` (already done above) or use a dynamic import to exclude it from the server bundle entirely:
 
 ```tsx
-// If you need to import StreamPlayer in a server component:
 import dynamic from 'next/dynamic';
 
 const StreamPlayer = dynamic(
@@ -807,7 +799,6 @@ const StreamPlayer = dynamic(
 ## Vue 3
 
 ```vue
-<!-- components/StreamPlayer.vue -->
 <template>
   <div>
     <video ref="videoEl" controls style="width:100%; background:#000; border-radius:6px; display:block">
@@ -928,7 +919,16 @@ async function loadStream() {
     : `${BASE}/movie?id=${props.tmdbId}`;
 
   try {
-    const res     = await fetch(url, { signal: abortController.signal });
+    const { token } = await fetch(`${BASE}/api/auth`, {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer YOUR_API_KEY' },
+      signal: abortController.signal,
+    }).then(r => r.json());
+
+    const res     = await fetch(url, {
+      signal: abortController.signal,
+      headers: { 'X-Session-Token': token },
+    });
     const reader  = res.body!.getReader();
     const decoder = new TextDecoder();
     let buffer    = '';
@@ -975,13 +975,13 @@ onUnmounted(() => { hlsInstance?.destroy(); abortController?.abort(); });
 ExoPlayer handles both HLS and MP4 natively — just pass the URL and it auto-detects the type.
 
 ```kotlin
-// StreamActivity.kt
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
 import kotlinx.coroutines.*
 import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.InputStreamReader
+import java.net.HttpURLConnection
 import java.net.URL
 
 class StreamActivity : AppCompatActivity() {
@@ -1000,15 +1000,26 @@ class StreamActivity : AppCompatActivity() {
         loadStream(tmdbId)
     }
 
+    private fun getSessionToken(): String {
+        val conn = URL("$BASE/api/auth").openConnection() as HttpURLConnection
+        conn.requestMethod = "POST"
+        conn.setRequestProperty("Authorization", "Bearer YOUR_API_KEY")
+        conn.doInput = true
+        val response = conn.inputStream.bufferedReader().readText()
+        return JSONObject(response).getString("token")
+    }
+
     private fun loadStream(tmdbId: Int, season: Int? = null, episode: Int? = null) {
         scope.launch {
-            val url = if (season != null && episode != null)
+            val streamUrl = if (season != null && episode != null)
                 "$BASE/tv?id=$tmdbId&season=$season&episode=$episode"
             else
                 "$BASE/movie?id=$tmdbId"
 
             withContext(Dispatchers.IO) {
-                val conn = URL(url).openConnection()
+                val token = getSessionToken()
+                val conn = URL(streamUrl).openConnection() as HttpURLConnection
+                conn.setRequestProperty("X-Session-Token", token)
                 val reader = BufferedReader(InputStreamReader(conn.inputStream))
 
                 reader.forEachLine { line ->
@@ -1018,12 +1029,11 @@ class StreamActivity : AppCompatActivity() {
                     when (json.getString("type")) {
                         "source" -> {
                             val source = json.getJSONObject("source")
-                            val streamUrl = source.getString("url")
+                            val url = source.getString("url")
 
-                            // ExoPlayer auto-detects HLS vs MP4 from the URL and Content-Type
                             withContext(Dispatchers.Main) {
                                 if (!player.isPlaying) {
-                                    player.setMediaItem(MediaItem.fromUri(streamUrl))
+                                    player.setMediaItem(MediaItem.fromUri(url))
                                     player.prepare()
                                     player.play()
                                 }
@@ -1054,7 +1064,6 @@ class StreamActivity : AppCompatActivity() {
 AVPlayer handles both HLS and MP4 natively. Same SSE parsing, different player attachment.
 
 ```swift
-// StreamViewController.swift
 import UIKit
 import AVKit
 
@@ -1071,62 +1080,79 @@ class StreamViewController: UIViewController {
         loadStream(tmdbId: 550)
     }
 
+    func getSessionToken(completion: @escaping (String?) -> Void) {
+        guard let url = URL(string: "\(BASE)/api/auth") else { completion(nil); return }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer YOUR_API_KEY", forHTTPHeaderField: "Authorization")
+        URLSession.shared.dataTask(with: request) { data, _, _ in
+            guard let data,
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let token = json["token"] as? String else { completion(nil); return }
+            completion(token)
+        }.resume()
+    }
+
     func loadStream(tmdbId: Int, season: Int? = nil, episode: Int? = nil) {
-        let path: String
-        if let s = season, let e = episode {
-            path = "\(BASE)/tv?id=\(tmdbId)&season=\(s)&episode=\(e)"
-        } else {
-            path = "\(BASE)/movie?id=\(tmdbId)"
-        }
+        getSessionToken { [weak self] token in
+            guard let self, let token else { return }
 
-        guard let url = URL(string: path) else { return }
+            let path: String
+            if let s = season, let e = episode {
+                path = "\(self.BASE)/tv?id=\(tmdbId)&season=\(s)&episode=\(e)"
+            } else {
+                path = "\(self.BASE)/movie?id=\(tmdbId)"
+            }
 
-        // SSE via URLSession data delegate
-        class SSEDelegate: NSObject, URLSessionDataDelegate {
-            var buffer = ""
-            var onSource: (String) -> Void
+            guard let url = URL(string: path) else { return }
+            var request = URLRequest(url: url)
+            request.setValue(token, forHTTPHeaderField: "X-Session-Token")
 
-            init(_ onSource: @escaping (String) -> Void) { self.onSource = onSource }
+            class SSEDelegate: NSObject, URLSessionDataDelegate {
+                var buffer = ""
+                var onSource: (String) -> Void
 
-            func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
-                guard let text = String(data: data, encoding: .utf8) else { return }
-                buffer += text
-                while let range = buffer.range(of: "\n") {
-                    let line = String(buffer[..<range.lowerBound])
-                    buffer.removeSubrange(..<range.upperBound)
-                    guard line.hasPrefix("data: "),
-                          let jsonData = line.dropFirst(6).data(using: .utf8),
-                          let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any],
-                          let type = json["type"] as? String else { continue }
-                    if type == "source",
-                       let source = json["source"] as? [String: Any],
-                       let streamUrl = source["url"] as? String {
-                        onSource(streamUrl)
+                init(_ onSource: @escaping (String) -> Void) { self.onSource = onSource }
+
+                func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
+                    guard let text = String(data: data, encoding: .utf8) else { return }
+                    buffer += text
+                    while let range = buffer.range(of: "\n") {
+                        let line = String(buffer[..<range.lowerBound])
+                        buffer.removeSubrange(..<range.upperBound)
+                        guard line.hasPrefix("data: "),
+                              let jsonData = line.dropFirst(6).data(using: .utf8),
+                              let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any],
+                              let type = json["type"] as? String else { continue }
+                        if type == "source",
+                           let source = json["source"] as? [String: Any],
+                           let streamUrl = source["url"] as? String {
+                            onSource(streamUrl)
+                        }
                     }
                 }
             }
-        }
 
-        let delegate = SSEDelegate { [weak self] streamUrl in
-            guard let self, !self.started else { return }
-            self.started = true
-            DispatchQueue.main.async {
-                // AVPlayer handles HLS and MP4 automatically
-                guard let url = URL(string: streamUrl) else { return }
-                let player = AVPlayer(url: url)
-                self.player = player
-                let layer = AVPlayerLayer(player: player)
-                layer.frame = self.view.bounds
-                layer.videoGravity = .resizeAspect
-                self.view.layer.addSublayer(layer)
-                self.playerLayer = layer
-                player.play()
+            let delegate = SSEDelegate { [weak self] streamUrl in
+                guard let self, !self.started else { return }
+                self.started = true
+                DispatchQueue.main.async {
+                    guard let url = URL(string: streamUrl) else { return }
+                    let player = AVPlayer(url: url)
+                    self.player = player
+                    let layer = AVPlayerLayer(player: player)
+                    layer.frame = self.view.bounds
+                    layer.videoGravity = .resizeAspect
+                    self.view.layer.addSublayer(layer)
+                    self.playerLayer = layer
+                    player.play()
+                }
             }
-        }
 
-        let session = URLSession(configuration: .default, delegate: delegate, delegateQueue: nil)
-        streamTask = session.dataTask(with: url)
-        streamTask?.resume()
+            let session = URLSession(configuration: .default, delegate: delegate, delegateQueue: nil)
+            self.streamTask = session.dataTask(with: request)
+            self.streamTask?.resume()
+        }
     }
 
     override func viewWillDisappear(_ animated: Bool) {
@@ -1154,14 +1180,23 @@ import subprocess
 
 BASE = 'https://missourimonster-vyla-v2.hf.space'
 
-def stream(tmdb_id: int, season: int = None, episode: int = None):
+def get_session_token(api_key: str) -> str:
+    res = requests.post(
+        f'{BASE}/api/auth',
+        headers={'Authorization': f'Bearer {api_key}'}
+    )
+    return res.json()['token']
+
+def stream(tmdb_id: int, api_key: str, season: int = None, episode: int = None):
+    token = get_session_token(api_key)
+
     url = (
         f'{BASE}/tv?id={tmdb_id}&season={season}&episode={episode}'
         if season and episode else
         f'{BASE}/movie?id={tmdb_id}'
     )
 
-    with requests.get(url, stream=True) as res:
+    with requests.get(url, headers={'X-Session-Token': token}, stream=True) as res:
         for line in res.iter_lines():
             if not line or not line.startswith(b'data: '):
                 continue
@@ -1172,13 +1207,11 @@ def stream(tmdb_id: int, season: int = None, episode: int = None):
                 stream_url = event['source']['url']
                 label      = event['source']['label']
                 print(f'Playing via {label}: {stream_url}')
-                # mpv handles HLS and MP4 automatically
                 subprocess.run(['mpv', stream_url])
-                return  # play first working source
+                return
 
-            if event['type'] == 'done' and not any(True for _ in []):
+            if event['type'] == 'done':
                 print('No sources available.')
 
-stream(550)
-# stream(1396, season=1, episode=1)
+stream(550, 'your_standard_api_key')
 ```

@@ -53,6 +53,8 @@ Tokens are HMAC-signed and verified server-side without shared in-memory state, 
 
 API keys are for server-side integrations and direct API access where the key is never exposed to end users.
 
+Rate limits are enforced per API key — not per IP address or per user. Each request made with the same key counts toward that key's limit regardless of where it originates.
+
 | Tier | Rate Limit | Streaming access |
 |------|-----------|-----------------|
 | `public` | 10 req / 60s | No |
@@ -91,8 +93,27 @@ curl "https://missourimonster-vyla-v2.hf.space/api/health" \
 |-------|-------|
 | `Missing API key` | No `Authorization`, `X-API-Key`, or `X-Session-Token` header sent. |
 | `Invalid API key` | Key doesn't match any known key. |
-| `Rate limit exceeded` | Tier's request limit hit for the current window. |
+| `Rate limit exceeded` | The key's request limit has been hit for the current 60-second window. |
 | `Access denied` | A `public`-tier key or token was used to access a proxied stream endpoint. |
+
+---
+
+## Rate Limiting
+
+Rate limits are tracked per API key. Session token requests (authenticated via `X-Session-Token`) are not subject to rate limiting — only direct API key usage is counted.
+
+When a limit is exceeded the API returns `429` with a JSON body:
+
+```json
+{
+  "error": "Rate limit exceeded",
+  "resetAt": 1718000000000,
+  "limit": 100,
+  "window": 60000
+}
+```
+
+`resetAt` is a Unix timestamp in milliseconds indicating when the window resets.
 
 ---
 
@@ -109,7 +130,7 @@ Use **API keys** if your code runs on a server where the key is never sent to th
 | Route | Auth required | `public` key/token allowed |
 |-------|---------------|---------------------------|
 | `GET /` | No | Yes |
-| `POST /api/auth` | Yes | Yes |
+| `POST /api/auth` | Yes (API key) | Yes |
 | `GET /api/health` | Yes | Yes |
 | `GET /api/subtitles/*` | Yes | Yes |
 | `GET /api/downloads/*` | Yes | Yes |
