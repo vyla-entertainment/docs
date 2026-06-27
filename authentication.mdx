@@ -21,7 +21,7 @@ If you are building a browser-based player or client-side application, use sessi
 ### Step 1 — Get a token (server-side)
 
 ```javascript
-const { token } = await fetch('https://missourimonster-vyla-v2.hf.space/api/auth', {
+const { token } = await fetch('https://missourimonster-vyla-v3.hf.space/api/auth', {
   method: 'POST',
   headers: { 'Authorization': 'Bearer YOUR_API_KEY' }
 }).then(r => r.json());
@@ -32,7 +32,7 @@ const { token } = await fetch('https://missourimonster-vyla-v2.hf.space/api/auth
 ### Step 2 — Send the token (client-side)
 
 ```javascript
-const res = await fetch('https://missourimonster-vyla-v2.hf.space/movie?id=550', {
+const res = await fetch('https://missourimonster-vyla-v3.hf.space/movie?id=550', {
   headers: { 'X-Session-Token': token }
 });
 ```
@@ -77,12 +77,12 @@ Standard and partner keys are no longer issued publicly. [Submit a request](http
 
 <CodeGroup>
 ```bash Authorization Header
-curl "https://missourimonster-vyla-v2.hf.space/api/health" \
+curl "https://missourimonster-vyla-v3.hf.space/api/health" \
   -H "Authorization: Bearer public_api_key"
 ```
 
 ```bash X-API-Key Header
-curl "https://missourimonster-vyla-v2.hf.space/api/health" \
+curl "https://missourimonster-vyla-v3.hf.space/api/health" \
   -H "X-API-Key: public_api_key"
 ```
 </CodeGroup>

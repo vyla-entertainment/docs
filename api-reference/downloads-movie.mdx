@@ -1,6 +1,6 @@
 ---
 title: Movie Downloads
-api: "GET https://missourimonster-vyla-v2.hf.space/api/downloads/movie/{tmdb_id}"
+api: "GET https://missourimonster-vyla-v3.hf.space/api/downloads/movie/{tmdb_id}"
 authMethod: "bearer"
 description: Fetch direct download links for a movie with quality labels and file sizes.
 ---
@@ -21,12 +21,12 @@ Returns direct download links for a movie. Each link comes with a quality label,
 
 <CodeGroup>
 ```bash cURL
-curl https://missourimonster-vyla-v2.hf.space/api/downloads/movie/550 \
+curl https://missourimonster-vyla-v3.hf.space/api/downloads/movie/550 \
   --header "Authorization: Bearer YOUR_API_KEY"
 ```
 
 ```javascript JavaScript
-const res  = await fetch('https://missourimonster-vyla-v2.hf.space/api/downloads/movie/550', {
+const res  = await fetch('https://missourimonster-vyla-v3.hf.space/api/downloads/movie/550', {
   headers: { 'Authorization': 'Bearer YOUR_API_KEY' }
 });
 const data = await res.json();
@@ -40,7 +40,7 @@ data.downloads.forEach(dl => {
 import requests
 
 data = requests.get(
-  'https://missourimonster-vyla-v2.hf.space/api/downloads/movie/550',
+  'https://missourimonster-vyla-v3.hf.space/api/downloads/movie/550',
   headers={'Authorization': 'Bearer YOUR_API_KEY'}
 ).json()
 
@@ -125,7 +125,7 @@ for dl in data['downloads']:
 ```javascript
 async function addMovieDownloadButtons(tmdbId, containerEl) {
   const res = await fetch(
-    `https://missourimonster-vyla-v2.hf.space/api/downloads/movie/${tmdbId}`,
+    `https://missourimonster-vyla-v3.hf.space/api/downloads/movie/${tmdbId}`,
     { headers: { 'Authorization': 'Bearer YOUR_API_KEY' } }
   );
 

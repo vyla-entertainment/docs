@@ -36,18 +36,18 @@ The `/movie` and `/tv` endpoints are **Server-Sent Events** — not JSON. Open a
 
 <CodeGroup>
 ```bash Movie (session token)
-TOKEN=$(curl -s -X POST https://missourimonster-vyla-v2.hf.space/api/auth \
+TOKEN=$(curl -s -X POST https://missourimonster-vyla-v3.hf.space/api/auth \
   -H "Authorization: Bearer YOUR_API_KEY" | jq -r .token)
 
-curl -N "https://missourimonster-vyla-v2.hf.space/movie?id=550" \
+curl -N "https://missourimonster-vyla-v3.hf.space/movie?id=550" \
   -H "X-Session-Token: $TOKEN"
 ```
 
 ```bash TV Episode (session token)
-TOKEN=$(curl -s -X POST https://missourimonster-vyla-v2.hf.space/api/auth \
+TOKEN=$(curl -s -X POST https://missourimonster-vyla-v3.hf.space/api/auth \
   -H "Authorization: Bearer YOUR_API_KEY" | jq -r .token)
 
-curl -N "https://missourimonster-vyla-v2.hf.space/tv?id=1396&season=1&episode=1" \
+curl -N "https://missourimonster-vyla-v3.hf.space/tv?id=1396&season=1&episode=1" \
   -H "X-Session-Token: $TOKEN"
 ```
 </CodeGroup>
@@ -56,9 +56,9 @@ curl -N "https://missourimonster-vyla-v2.hf.space/tv?id=1396&season=1&episode=1"
 ```
 data: {"type":"meta","meta":{"id":550,"title":"Fight Club","release_date":"1999-10-15","runtime":139},"subtitles":[{"label":"English","file":"https://sub.vdrk.site/v1/vtt/movie/550/English.vtt","type":"vtt","source":"v1"},{"label":"Spanish","file":"https://sub.vdrk.site/v1/vtt/movie/550/Spanish.vtt","type":"vtt","source":"v1"}]}
 
-data: {"type":"source","source":{"source":"provider-a","label":"Provider A","url":"https://missourimonster-vyla-v2.hf.space/api?url=...&pa=1"}}
+data: {"type":"source","source":{"source":"provider-a","label":"Provider A","url":"https://missourimonster-vyla-v3.hf.space/api?url=...&pa=1"}}
 
-data: {"type":"source","source":{"source":"provider-b","label":"Provider B","url":"https://missourimonster-vyla-v2.hf.space/api?url=...&pb=1"}}
+data: {"type":"source","source":{"source":"provider-b","label":"Provider B","url":"https://missourimonster-vyla-v3.hf.space/api?url=...&pb=1"}}
 
 data: {"type":"done","total":2}
 ```
@@ -83,7 +83,7 @@ Parse each `data:` line as JSON and act on the `type` field. Start playback on t
       <div id="status">Connecting…</div>
 
       <script>
-        const BASE   = 'https://missourimonster-vyla-v2.hf.space';
+        const BASE   = 'https://missourimonster-vyla-v3.hf.space';
         const video  = document.getElementById('player');
         const status = document.getElementById('status');
 
@@ -170,7 +170,7 @@ Parse each `data:` line as JSON and act on the `type` field. Start playback on t
     import { useEffect, useRef, useState } from 'react';
     import Hls from 'hls.js';
 
-    const BASE = 'https://missourimonster-vyla-v2.hf.space';
+    const BASE = 'https://missourimonster-vyla-v3.hf.space';
 
     export function Player({ tmdbId }: { tmdbId: number }) {
       const videoRef   = useRef<HTMLVideoElement>(null);
@@ -254,7 +254,7 @@ Parse each `data:` line as JSON and act on the `type` field. Start playback on t
     ```python
     import requests, json
 
-    BASE = 'https://missourimonster-vyla-v2.hf.space'
+    BASE = 'https://missourimonster-vyla-v3.hf.space'
 
     def stream_movie(tmdb_id: int, api_key: str):
         sources   = []
@@ -297,7 +297,7 @@ Parse each `data:` line as JSON and act on the `type` field. Start playback on t
 Sources stream in order of speed. Load the first one immediately and queue the rest — if one dies mid-stream, try the next.
 
 ```typescript
-const BASE = 'https://missourimonster-vyla-v2.hf.space';
+const BASE = 'https://missourimonster-vyla-v3.hf.space';
 
 async function streamWithFallback(
   videoEl: HTMLVideoElement,
@@ -390,7 +390,7 @@ if (event.type === 'meta') {
 Before building, verify which providers are currently live. The health endpoint accepts any valid API key or session token.
 
 ```bash
-curl https://missourimonster-vyla-v2.hf.space/api/health \
+curl https://missourimonster-vyla-v3.hf.space/api/health \
   -H "Authorization: Bearer public_api_key"
 ```
 
@@ -418,10 +418,10 @@ curl https://missourimonster-vyla-v2.hf.space/api/health \
 Use `/api/test` to isolate a specific provider without running the full fanout. This endpoint requires a `standard`/`partner` key or session token.
 
 ```bash
-TOKEN=$(curl -s -X POST https://missourimonster-vyla-v2.hf.space/api/auth \
+TOKEN=$(curl -s -X POST https://missourimonster-vyla-v3.hf.space/api/auth \
   -H "Authorization: Bearer YOUR_API_KEY" | jq -r .token)
 
-curl "https://missourimonster-vyla-v2.hf.space/api/test/550?source=<provider-key>" \
+curl "https://missourimonster-vyla-v3.hf.space/api/test/550?source=<provider-key>" \
   -H "X-Session-Token: $TOKEN"
 ```
 

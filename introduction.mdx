@@ -50,7 +50,7 @@ Pass a TMDB ID. Get back a live stream of working sources, multi-language subtit
 ## Base URL
 
 ```
-https://missourimonster-vyla-v2.hf.space
+https://missourimonster-vyla-v3.hf.space
 ```
 
 All endpoints return `Access-Control-Allow-Origin: *`. Requests to protected endpoints require either a session token or an API key — see [Authentication](/authentication).
@@ -98,7 +98,7 @@ All endpoints return `Access-Control-Allow-Origin: *`. Requests to protected end
 </Warning>
 
 <Tip>
-  Check which providers are currently live: [`/api/health`](https://missourimonster-vyla-v2.hf.space/api/health)
+  Check which providers are currently live: [`/api/health`](https://missourimonster-vyla-v3.hf.space/api/health)
 </Tip>
 
 ---
@@ -142,7 +142,7 @@ Emitted each time a provider passes live verification. Your player should start 
   "source": {
     "source": "provider-key",
     "label": "Provider Label",
-    "url": "https://missourimonster-vyla-v2.hf.space/api?url=...&pp=1"
+    "url": "https://missourimonster-vyla-v3.hf.space/api?url=...&pp=1"
   }
 }
 ```
@@ -170,7 +170,7 @@ Returned inside `source` events on movie and TV streams.
 {
   "source": "provider-key",
   "label": "Provider Name",
-  "url": "https://missourimonster-vyla-v2.hf.space/api?url=https%3A%2F%2F...&pp=1"
+  "url": "https://missourimonster-vyla-v3.hf.space/api?url=https%3A%2F%2F...&pp=1"
 }
 ```
 
