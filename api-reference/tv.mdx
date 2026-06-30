@@ -1,6 +1,6 @@
 ---
 title: TV Episode Sources
-api: "GET https://missourimonster-vyla-v3.hf.space/tv"
+api: "GET https://api.vyla.cc/tv"
 authMethod: "bearer"
 description: Stream verified HLS sources, subtitle tracks, and TMDB metadata for a TV episode via Server-Sent Events.
 ---
@@ -43,19 +43,19 @@ Identical to the movie endpoint in behavior, but requires a series ID plus seaso
 
 <CodeGroup>
 ```bash cURL (API key)
-curl -N "https://missourimonster-vyla-v3.hf.space/tv?id=1396&season=1&episode=1" \
+curl -N "https://api.vyla.cc/tv?id=1396&season=1&episode=1" \
   --header "Authorization: Bearer YOUR_API_KEY"
 ```
 
 ```bash cURL (session token)
-TOKEN=$(curl -s -X POST https://missourimonster-vyla-v3.hf.space/api/auth | jq -r .token)
+TOKEN=$(curl -s -X POST https://api.vyla.cc/api/auth | jq -r .token)
 
-curl -N "https://missourimonster-vyla-v3.hf.space/tv?id=1396&season=1&episode=1" \
+curl -N "https://api.vyla.cc/tv?id=1396&season=1&episode=1" \
   -H "X-Session-Token: $TOKEN"
 ```
 
 ```javascript JavaScript (session token)
-const BASE = 'https://missourimonster-vyla-v3.hf.space';
+const BASE = 'https://api.vyla.cc';
 
 const { token } = await fetch(`${BASE}/api/auth`, { method: 'POST' }).then(r => r.json());
 
@@ -86,7 +86,7 @@ while (true) {
 ```
 
 ```typescript TypeScript (session token)
-const BASE = 'https://missourimonster-vyla-v3.hf.space';
+const BASE = 'https://api.vyla.cc';
 
 interface Source {
   source: string;
@@ -144,7 +144,7 @@ async function streamEpisode(
 ```python Python (server-side key)
 import requests, json
 
-BASE = 'https://missourimonster-vyla-v3.hf.space'
+BASE = 'https://api.vyla.cc'
 
 with requests.get(
   f'{BASE}/tv',
@@ -170,7 +170,7 @@ with requests.get(
 ```
 
 ```swift Swift
-let url = URL(string: "https://missourimonster-vyla-v3.hf.space/tv?id=1396&season=1&episode=1")!
+let url = URL(string: "https://api.vyla.cc/tv?id=1396&season=1&episode=1")!
 var request = URLRequest(url: url)
 request.setValue("your_session_token", forHTTPHeaderField: "X-Session-Token")
 
@@ -280,9 +280,9 @@ Emitted once per verified, working provider.
 ```text 200
 data: {"type":"meta","meta":{"id":1396,"name":"Pilot","season_number":1,"episode_number":1,"air_date":"2008-01-20"},"subtitles":[{"label":"English","file":"https://sub.vdrk.site/v1/tv/1396/1/1/English.vtt","type":"vtt","source":"v1"}]}
 
-data: {"type":"source","source":{"source":"vidlink","label":"VidLink","url":"https://missourimonster-vyla-v3.hf.space/api?url=https%3A%2F%2F...&vl=1"}}
+data: {"type":"source","source":{"source":"vidlink","label":"VidLink","url":"https://api.vyla.cc/api?url=https%3A%2F%2F...&vl=1"}}
 
-data: {"type":"source","source":{"source":"meowtv","label":"MeowTV","url":"https://missourimonster-vyla-v3.hf.space/api?url=https%3A%2F%2F...&mt=1"}}
+data: {"type":"source","source":{"source":"meowtv","label":"MeowTV","url":"https://api.vyla.cc/api?url=https%3A%2F%2F...&mt=1"}}
 
 data: {"type":"done","total":2}
 ```

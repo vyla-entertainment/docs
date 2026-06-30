@@ -33,7 +33,7 @@ For `/movie` and `/tv`, HTTP `200` is returned immediately when the SSE stream o
 The most common failure — all providers failed to return a playable stream. Detect it by checking `total` in the `done` event.
 
 ```typescript
-const BASE = 'https://missourimonster-vyla-v3.hf.space';
+const BASE = 'https://api.vyla.cc';
 
 const { token } = await fetch(`${BASE}/api/auth`, {
   method: 'POST',
@@ -76,7 +76,7 @@ Sources stream in as providers resolve. Queue every `source` event URL and fall 
 ```typescript
 import Hls from 'hls.js';
 
-const BASE = 'https://missourimonster-vyla-v3.hf.space';
+const BASE = 'https://api.vyla.cc';
 
 async function playWithFallback(
   videoEl: HTMLVideoElement,
@@ -232,7 +232,7 @@ If you're building a dashboard, check provider health before opening a stream to
 ```typescript
 async function checkAndStream(tmdbId: number, token: string) {
   const health = await fetch(
-    'https://missourimonster-vyla-v3.hf.space/api/health',
+    'https://api.vyla.cc/api/health',
     { headers: { 'X-Session-Token': token } }
   ).then(r => r.json());
 
@@ -244,7 +244,7 @@ async function checkAndStream(tmdbId: number, token: string) {
   }
 
   return fetch(
-    `https://missourimonster-vyla-v3.hf.space/movie?id=${tmdbId}`,
+    `https://api.vyla.cc/movie?id=${tmdbId}`,
     { headers: { 'X-Session-Token': token } }
   );
 }
@@ -258,7 +258,7 @@ async function checkAndStream(tmdbId: number, token: string) {
 import { useState, useCallback, useRef } from 'react';
 import Hls from 'hls.js';
 
-const BASE = 'https://missourimonster-vyla-v3.hf.space';
+const BASE = 'https://api.vyla.cc';
 
 type PlayerState =
   | { status: 'idle' }

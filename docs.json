@@ -75,7 +75,7 @@
     {
       "name": "Health Status",
       "icon": "heart-pulse",
-      "url": "https://missourimonster-vyla-v3.hf.space/api/health"
+      "url": "https://api.vyla.cc/api/health"
     }
   ],
   "navigation": {
@@ -176,12 +176,12 @@
     "socials": {
       "github": "https://github.com/EndOverdosing/Vyla-Player-API",
       "discord": "https://discord.gg/5eqRhKeywG",
-      "website": "https://missourimonster-vyla-v3.hf.space"
+      "website": "https://api.vyla.cc"
     }
   },
   "api": {
     "mdx": {
-      "server": "https://missourimonster-vyla-v3.hf.space",
+      "server": "https://api.vyla.cc",
       "auth": {
         "method": "bearer"
       }

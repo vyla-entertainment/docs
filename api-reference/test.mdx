@@ -1,6 +1,6 @@
 ---
 title: Test a Source
-api: "GET https://missourimonster-vyla-v3.hf.space/api/test/{id}"
+api: "GET https://api.vyla.cc/api/test/{id}"
 authMethod: "bearer"
 description: Debug a single provider in isolation — get the raw URL, proxy URL, elapsed time, and error details.
 ---
@@ -30,7 +30,7 @@ Tests one specific provider for a given TMDB ID without running the full paralle
 <ParamField query="source" type="string" required>
   Provider key to test. Must exactly match one of the configured source keys.
 
-  Available keys are listed in the `sources` field of [`/api/health`](https://missourimonster-vyla-v3.hf.space/api/health) or via [`GET /api?sources_meta=1`](https://missourimonster-vyla-v3.hf.space/api?sources_meta=1).
+  Available keys are listed in the `sources` field of [`/api/health`](https://api.vyla.cc/api/health) or via [`GET /api?sources_meta=1`](https://api.vyla.cc/api?sources_meta=1).
 </ParamField>
 
 <ParamField query="season" type="number">
@@ -47,37 +47,37 @@ Tests one specific provider for a given TMDB ID without running the full paralle
 
 <CodeGroup>
 ```bash Movie (API key)
-curl "https://missourimonster-vyla-v3.hf.space/api/test/550?source=<provider-key>" \
+curl "https://api.vyla.cc/api/test/550?source=<provider-key>" \
   --header "Authorization: Bearer YOUR_API_KEY"
 ```
 
 ```bash Movie (session token)
-TOKEN=$(curl -s -X POST https://missourimonster-vyla-v3.hf.space/api/auth | jq -r .token)
+TOKEN=$(curl -s -X POST https://api.vyla.cc/api/auth | jq -r .token)
 
-curl "https://missourimonster-vyla-v3.hf.space/api/test/550?source=<provider-key>" \
+curl "https://api.vyla.cc/api/test/550?source=<provider-key>" \
   -H "X-Session-Token: $TOKEN"
 ```
 
 ```bash TV Episode (API key)
-curl "https://missourimonster-vyla-v3.hf.space/api/test/1396?season=1&episode=1&source=<provider-key>" \
+curl "https://api.vyla.cc/api/test/1396?season=1&episode=1&source=<provider-key>" \
   --header "Authorization: Bearer YOUR_API_KEY"
 ```
 
 ```bash TV Episode (session token)
-TOKEN=$(curl -s -X POST https://missourimonster-vyla-v3.hf.space/api/auth | jq -r .token)
+TOKEN=$(curl -s -X POST https://api.vyla.cc/api/auth | jq -r .token)
 
-curl "https://missourimonster-vyla-v3.hf.space/api/test/1396?season=1&episode=1&source=<provider-key>" \
+curl "https://api.vyla.cc/api/test/1396?season=1&episode=1&source=<provider-key>" \
   -H "X-Session-Token: $TOKEN"
 ```
 
 ```javascript JavaScript (session token)
 const { token } = await fetch(
-  'https://missourimonster-vyla-v3.hf.space/api/auth',
+  'https://api.vyla.cc/api/auth',
   { method: 'POST' }
 ).then(r => r.json());
 
 const res = await fetch(
-  'https://missourimonster-vyla-v3.hf.space/api/test/550?source=<provider-key>',
+  'https://api.vyla.cc/api/test/550?source=<provider-key>',
   { headers: { 'X-Session-Token': token } }
 );
 const data = await res.json();
@@ -103,12 +103,12 @@ interface TestResponse {
 }
 
 const { token } = await fetch(
-  'https://missourimonster-vyla-v3.hf.space/api/auth',
+  'https://api.vyla.cc/api/auth',
   { method: 'POST' }
 ).then(r => r.json());
 
 const data: TestResponse = await fetch(
-  'https://missourimonster-vyla-v3.hf.space/api/test/550?source=<provider-key>',
+  'https://api.vyla.cc/api/test/550?source=<provider-key>',
   { headers: { 'X-Session-Token': token } }
 ).then(r => r.json());
 ```
@@ -117,7 +117,7 @@ const data: TestResponse = await fetch(
 import requests
 
 res = requests.get(
-  'https://missourimonster-vyla-v3.hf.space/api/test/550',
+  'https://api.vyla.cc/api/test/550',
   params={'source': '<provider-key>'},
   headers={
     'Authorization': 'Bearer your_standard_api_key'
@@ -183,7 +183,7 @@ if res['error']:
       "s": null,
       "e": null,
       "ok": true,
-      "url": "https://missourimonster-vyla-v3.hf.space/api?url=https%3A%2F%2F...&pa=1",
+      "url": "https://api.vyla.cc/api?url=https%3A%2F%2F...&pa=1",
       "raw_url": "https://...",
       "elapsed_ms": 1204,
       "error": null
@@ -198,7 +198,7 @@ if res['error']:
       "s": 1,
       "e": 1,
       "ok": true,
-      "url": "https://missourimonster-vyla-v3.hf.space/api?url=https%3A%2F%2F...&pb=1",
+      "url": "https://api.vyla.cc/api?url=https%3A%2F%2F...&pb=1",
       "raw_url": "https://...",
       "elapsed_ms": 980,
       "error": null
@@ -246,7 +246,7 @@ if res['error']:
 To test all providers in one go and see which are working for a given title:
 
 ```javascript
-const BASE = 'https://missourimonster-vyla-v3.hf.space';
+const BASE = 'https://api.vyla.cc';
 
 async function testAll(tmdbId, season, episode) {
   const { token } = await fetch(`${BASE}/api/auth`, { method: 'POST' }).then(r => r.json());
@@ -278,5 +278,5 @@ testAll(550);
 ```
 
 <Tip>
-  For a quick overview without per-provider isolation, use [`/api/health`](https://missourimonster-vyla-v3.hf.space/api/health) — it probes all providers simultaneously and is optimised for monitoring. Health accepts `public_api_key`.
+  For a quick overview without per-provider isolation, use [`/api/health`](https://api.vyla.cc/api/health) — it probes all providers simultaneously and is optimised for monitoring. Health accepts `public_api_key`.
 </Tip>
