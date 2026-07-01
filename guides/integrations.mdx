@@ -71,7 +71,7 @@ Zero dependencies beyond HLS.js. Handles both HLS and MP4 correctly.
   <div id="status">Loading…</div>
 
   <script>
-    const BASE   = 'https://api.vyla.cc';
+    const BASE   = 'https://1c34-y.hf.space';
     const video  = document.getElementById('player');
     const status = document.getElementById('status');
     let hlsInstance = null;
@@ -195,7 +195,7 @@ Source switching, fallback queue, subtitle tracks, quality selector. All source 
   <div id="status">Connecting…</div>
 
   <script>
-    const BASE      = 'https://api.vyla.cc';
+    const BASE      = 'https://1c34-y.hf.space';
     const video     = document.getElementById('player');
     const statusEl  = document.getElementById('status');
     const sourcesEl = document.getElementById('sources');
@@ -373,7 +373,7 @@ Handles SSE parsing, abort on unmount, and re-fetch on param change. Drop-in for
 ```typescript
 import { useState, useEffect, useRef } from 'react';
 
-const BASE = 'https://api.vyla.cc';
+const BASE = 'https://1c34-y.hf.space';
 
 export interface StreamSource {
   source: string;
@@ -844,7 +844,7 @@ const props = defineProps<{
   episode?: number;
 }>();
 
-const BASE = 'https://api.vyla.cc';
+const BASE = 'https://1c34-y.hf.space';
 
 interface Source   { source: string; label: string; url: string; }
 interface Subtitle { label: string; file: string; type: string; source: string; }
@@ -986,7 +986,7 @@ import java.net.URL
 
 class StreamActivity : AppCompatActivity() {
 
-    private val BASE = "https://api.vyla.cc"
+    private val BASE = "https://1c34-y.hf.space"
     private lateinit var player: ExoPlayer
     private val scope = CoroutineScope(Dispatchers.Main + Job())
 
@@ -1069,7 +1069,7 @@ import AVKit
 
 class StreamViewController: UIViewController {
 
-    let BASE = "https://api.vyla.cc"
+    let BASE = "https://1c34-y.hf.space"
     var player: AVPlayer?
     var playerLayer: AVPlayerLayer?
     var streamTask: URLSessionDataTask?
@@ -1178,7 +1178,7 @@ import requests
 import json
 import subprocess
 
-BASE = 'https://api.vyla.cc'
+BASE = 'https://1c34-y.hf.space'
 
 def get_session_token(api_key: str) -> str:
     res = requests.post(

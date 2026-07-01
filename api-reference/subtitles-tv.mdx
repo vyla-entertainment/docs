@@ -1,6 +1,6 @@
 ---
 title: TV Subtitles
-api: "GET https://api.vyla.cc/api/subtitles/tv/{tmdb_id}/{season}/{episode}"
+api: "GET https://1c34-y.hf.space/api/subtitles/tv/{tmdb_id}/{season}/{episode}"
 authMethod: "bearer"
 description: Fetch all available subtitle tracks for a TV episode.
 ---
@@ -31,13 +31,13 @@ Returns an array of subtitle tracks for a specific TV episode. Each track is a d
 
 <CodeGroup>
 ```bash cURL
-curl https://api.vyla.cc/api/subtitles/tv/1396/1/1 \
+curl https://1c34-y.hf.space/api/subtitles/tv/1396/1/1 \
   --header "Authorization: Bearer YOUR_API_KEY"
 ```
 
 ```javascript JavaScript
 const subtitles = await fetch(
-  'https://api.vyla.cc/api/subtitles/tv/1396/1/1',
+  'https://1c34-y.hf.space/api/subtitles/tv/1396/1/1',
   { headers: { 'Authorization': 'Bearer YOUR_API_KEY' } }
 ).then(r => r.json());
 
@@ -55,7 +55,7 @@ interface Subtitle {
 }
 
 const subtitles: Subtitle[] = await fetch(
-  `https://api.vyla.cc/api/subtitles/tv/${seriesId}/${season}/${episode}`,
+  `https://1c34-y.hf.space/api/subtitles/tv/${seriesId}/${season}/${episode}`,
   { headers: { 'Authorization': 'Bearer YOUR_API_KEY' } }
 ).then(r => r.json());
 ```
@@ -68,7 +68,7 @@ season    = 1
 episode   = 1
 
 subtitles = requests.get(
-  f'https://api.vyla.cc/api/subtitles/tv/{series_id}/{season}/{episode}',
+  f'https://1c34-y.hf.space/api/subtitles/tv/{series_id}/{season}/{episode}',
   headers={'Authorization': 'Bearer YOUR_API_KEY'}
 ).json()
 
@@ -152,7 +152,7 @@ Returns a JSON array. `404` if no subtitles are found for this episode.
 ## Building an Episode Selector with Subtitles
 
 ```typescript
-const BASE = 'https://api.vyla.cc';
+const BASE = 'https://1c34-y.hf.space';
 
 async function loadEpisode(
   seriesId: number,

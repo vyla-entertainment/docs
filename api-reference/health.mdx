@@ -1,6 +1,6 @@
 ---
 title: Health Check
-api: "GET https://api.vyla.cc/api/health"
+api: "GET https://1c34-y.hf.space/api/health"
 description: Probe all configured providers in real time and get per-source latency and status.
 ---
 
@@ -18,12 +18,12 @@ This endpoint accepts any valid API key (including `public`) or a session token 
 
 <CodeGroup>
 ```bash cURL
-curl https://api.vyla.cc/api/health \
+curl https://1c34-y.hf.space/api/health \
   -H "Authorization: Bearer public_api_key"
 ```
 
 ```javascript JavaScript
-const res  = await fetch('https://api.vyla.cc/api/health', {
+const res  = await fetch('https://1c34-y.hf.space/api/health', {
   headers: {
     Authorization: 'Bearer public_api_key'
   }
@@ -42,7 +42,7 @@ if (data.status !== 'ok') {
 import requests
 
 data = requests.get(
-  'https://api.vyla.cc/api/health',
+  'https://1c34-y.hf.space/api/health',
   headers={
     'Authorization': 'Bearer public_api_key'
   }
@@ -71,7 +71,7 @@ interface HealthResponse {
 }
 
 const data: HealthResponse = await fetch(
-  'https://api.vyla.cc/api/health',
+  'https://1c34-y.hf.space/api/health',
   {
     headers: {
       Authorization: 'Bearer public_api_key'
